@@ -1,0 +1,115 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── Sizes ─── */
+
+.sm {
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.8125rem;
+  height: 28px;
+}
+
+.md {
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.875rem;
+  height: 36px;
+}
+
+.lg {
+  padding: var(--space-3) var(--space-6);
+  font-size: 0.9375rem;
+  height: 44px;
+}
+
+/* ─── Variants ─── */
+
+.primary {
+  background: linear-gradient(135deg, var(--amber-500) 0%, var(--amber-600) 100%);
+  color: var(--void);
+  border-color: var(--amber-600);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--amber-400) 0%, var(--amber-500) 100%);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.secondary {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--surface-4);
+  border-color: var(--border-strong);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.danger {
+  background: var(--surface-3);
+  color: var(--status-error);
+  border-color: var(--status-error-dim);
+}
+
+.danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--status-error);
+}
+
+/* ─── Icon ─── */
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon svg {
+  width: 1em;
+  height: 1em;
+}
+
+/* ─── Spinner ─── */
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,144 @@
+.page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+.titleGroup h1 {
+  margin-bottom: var(--space-1);
+}
+
+.titleGroup p {
+  font-size: 0.9375rem;
+  color: var(--text-tertiary);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ─── Notification List ─── */
+
+.notificationList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ─── Notification Item ─── */
+
+.notification {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4) !important;
+  position: relative;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.notification.unread {
+  background: var(--surface-2);
+  border-color: var(--border-default);
+}
+
+.notificationIcon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.notification.info .notificationIcon {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--status-info);
+}
+
+.notification.success .notificationIcon {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--status-success);
+}
+
+.notification.warning .notificationIcon {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--status-warning);
+}
+
+.notification.error .notificationIcon {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--status-error);
+}
+
+.notificationContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.notificationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.notificationTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.notificationTime {
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.notificationMessage {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.unreadDot {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber-500);
+}
+
+/* ─── Empty State ─── */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-12);
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.emptyState h3 {
+  font-size: 1.125rem;
+  color: var(--text-primary);
+}
+
+.emptyState p {
+  font-size: 0.875rem;
+}

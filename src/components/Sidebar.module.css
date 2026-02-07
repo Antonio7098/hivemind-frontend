@@ -1,0 +1,256 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--surface-0);
+  border-right: 1px solid var(--border-subtle);
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--z-sticky);
+  overflow: hidden;
+}
+
+/* ─── Header ─── */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.logoIcon {
+  width: 28px;
+  height: 28px;
+  color: var(--amber-500);
+  flex-shrink: 0;
+}
+
+.logoText {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.collapseBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.collapseBtn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+/* ─── Search ─── */
+
+.searchBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.searchBtn:hover {
+  background: var(--surface-3);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+.searchLabel {
+  flex: 1;
+  text-align: left;
+}
+
+.shortcut {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  padding: 2px 6px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+/* ─── Project Context ─── */
+
+.projectContext {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  margin-top: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.projectLabel {
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.projectName {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--amber-400);
+}
+
+/* ─── Navigation ─── */
+
+.nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  overflow-y: auto;
+}
+
+.navItem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.navItem:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.navItem.active {
+  color: var(--amber-400);
+}
+
+.navLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.activeIndicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  background: var(--amber-500);
+  border-radius: 0 2px 2px 0;
+}
+
+/* ─── Runtime Section ─── */
+
+.runtimeSection {
+  padding: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sectionLabel {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+  padding: 0 var(--space-3);
+}
+
+.runtimes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.runtimeItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+}
+
+.runtimeName {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+/* ─── Footer ─── */
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.footerBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.footerBtn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.footerBtn.hasNotif {
+  color: var(--amber-500);
+}
+
+.notifBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 600;
+  background: var(--status-error);
+  color: white;
+  border-radius: 8px;
+  padding: 0 4px;
+}
