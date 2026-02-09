@@ -1,22 +1,34 @@
 import { motion } from 'motion/react';
-import type { TaskState, TaskFlowState } from '../types';
+import type { TaskState, TaskExecState, FlowState, GraphState, MergeStatus } from '../types';
 import styles from './StatusIndicator.module.css';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATUS INDICATOR COMPONENT
-// Visual status badges with animated glows for task/flow states
+// Visual status badges with animated glows for all Hivemind states
 // ═══════════════════════════════════════════════════════════════════════════
 
+type StatusValue =
+  | TaskState
+  | TaskExecState
+  | FlowState
+  | GraphState
+  | MergeStatus
+  | 'healthy' | 'degraded' | 'offline';
+
 interface StatusIndicatorProps {
-  status: TaskState | TaskFlowState | 'healthy' | 'degraded' | 'offline';
+  status: StatusValue;
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
   pulse?: boolean;
 }
 
 const statusConfig: Record<string, { color: string; label: string; animate: boolean }> = {
-  // Task states
+  // Task states (Open/Closed)
+  open: { color: 'var(--state-success)', label: 'Open', animate: false },
+  closed: { color: 'var(--text-tertiary)', label: 'Closed', animate: false },
+  // Task execution states (within flows)
   pending: { color: 'var(--state-pending)', label: 'Pending', animate: false },
+  ready: { color: 'var(--status-info)', label: 'Ready', animate: true },
   running: { color: 'var(--state-running)', label: 'Running', animate: true },
   verifying: { color: 'var(--state-verifying)', label: 'Verifying', animate: true },
   success: { color: 'var(--state-success)', label: 'Success', animate: false },
@@ -28,6 +40,13 @@ const statusConfig: Record<string, { color: string; label: string; animate: bool
   paused: { color: 'var(--amber-500)', label: 'Paused', animate: false },
   completed: { color: 'var(--state-success)', label: 'Completed', animate: false },
   aborted: { color: 'var(--state-failed)', label: 'Aborted', animate: false },
+  // Graph states
+  draft: { color: 'var(--text-tertiary)', label: 'Draft', animate: false },
+  validated: { color: 'var(--status-info)', label: 'Validated', animate: false },
+  locked: { color: 'var(--accent-500)', label: 'Locked', animate: false },
+  // Merge states
+  prepared: { color: 'var(--status-info)', label: 'Prepared', animate: false },
+  approved: { color: 'var(--state-success)', label: 'Approved', animate: false },
   // Runtime states
   healthy: { color: 'var(--state-success)', label: 'Healthy', animate: false },
   degraded: { color: 'var(--amber-500)', label: 'Degraded', animate: true },

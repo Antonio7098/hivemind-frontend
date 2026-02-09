@@ -33,17 +33,19 @@ interface Command {
 
 export function CommandPalette() {
   const navigate = useNavigate();
-  const { commandPaletteOpen, toggleCommandPalette, projects, taskFlows } =
+  const { commandPaletteOpen, toggleCommandPalette, projects, flows, graphs } =
     useHivemindStore();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const graphMap = Object.fromEntries(graphs.map((g) => [g.id, g]));
 
   const commands: Command[] = [
     // Navigation
     { id: 'nav-dashboard', label: 'Go to Dashboard', icon: LayoutDashboard, category: 'Navigation', action: () => navigate('/') },
     { id: 'nav-projects', label: 'Go to Projects', icon: FolderKanban, shortcut: 'G P', category: 'Navigation', action: () => navigate('/projects') },
     { id: 'nav-tasks', label: 'Go to Tasks', icon: ListTodo, shortcut: 'G T', category: 'Navigation', action: () => navigate('/tasks') },
-    { id: 'nav-flows', label: 'Go to TaskFlows', icon: GitBranch, shortcut: 'G F', category: 'Navigation', action: () => navigate('/flows') },
+    { id: 'nav-flows', label: 'Go to Flows', icon: GitBranch, shortcut: 'G F', category: 'Navigation', action: () => navigate('/flows') },
     { id: 'nav-events', label: 'Go to Events', icon: Activity, shortcut: 'G E', category: 'Navigation', action: () => navigate('/events') },
     // Actions
     { id: 'action-new-project', label: 'Create New Project', icon: Plus, category: 'Actions', action: () => { navigate('/projects'); toggleCommandPalette(); } },
@@ -52,20 +54,25 @@ export function CommandPalette() {
     ...projects.map((p) => ({
       id: `project-${p.id}`,
       label: p.name,
-      description: p.description,
+      description: p.description ?? undefined,
       icon: FolderKanban,
       category: 'Projects',
       action: () => navigate(`/projects/${p.id}`),
     })),
-    // TaskFlows
-    ...taskFlows.map((f) => ({
-      id: `flow-${f.id}`,
-      label: f.name,
-      description: `${f.state} - ${f.progress.completed}/${f.progress.total} tasks`,
-      icon: f.state === 'running' ? Play : f.state === 'paused' ? Pause : GitBranch,
-      category: 'TaskFlows',
-      action: () => navigate(`/flows/${f.id}`),
-    })),
+    // Flows
+    ...flows.map((f) => {
+      const graph = graphMap[f.graph_id];
+      const execs = Object.values(f.task_executions);
+      const done = execs.filter((e) => e.state === 'success').length;
+      return {
+        id: `flow-${f.id}`,
+        label: graph?.name ?? f.id,
+        description: `${f.state} - ${done}/${execs.length} tasks`,
+        icon: f.state === 'running' ? Play : f.state === 'paused' ? Pause : GitBranch,
+        category: 'Flows',
+        action: () => navigate(`/flows/${f.id}`),
+      };
+    }),
   ];
 
   const filteredCommands = query

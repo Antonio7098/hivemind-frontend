@@ -1,35 +1,60 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { MainLayout } from './layouts/MainLayout';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { SidebarLayout } from './layouts/SidebarLayout';
+import { TopNavLayout } from './layouts/TopNavLayout';
+import { FloatingLayout } from './layouts/FloatingLayout';
+import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { Dashboard } from './pages/Dashboard';
 import { Projects } from './pages/Projects';
 import { Tasks } from './pages/Tasks';
+import { Graphs } from './pages/Graphs';
 import { TaskFlows } from './pages/TaskFlows';
+import { Merges } from './pages/Merges';
 import { Events } from './pages/Events';
 import { Settings } from './pages/Settings';
 import { Notifications } from './pages/Notifications';
+import { ThemeMatrix } from './pages/ThemeMatrix';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// HIVEMIND APP
-// Main application with routing
-// ═══════════════════════════════════════════════════════════════════════════
+function LayoutRouter() {
+  const { layout } = useTheme();
+
+  const LayoutComponent =
+    layout === 'topnav'
+      ? TopNavLayout
+      : layout === 'floating'
+      ? FloatingLayout
+      : SidebarLayout;
+
+  return (
+    <Routes>
+      <Route path="/" element={<LayoutComponent />}>
+        <Route index element={<Dashboard />} />
+        <Route path="projects" element={<Projects />} />
+        <Route path="projects/:id" element={<Projects />} />
+        <Route path="tasks" element={<Tasks />} />
+        <Route path="graphs" element={<Graphs />} />
+        <Route path="graphs/:id" element={<Graphs />} />
+        <Route path="flows" element={<TaskFlows />} />
+        <Route path="flows/:id" element={<TaskFlows />} />
+        <Route path="merges" element={<Merges />} />
+        <Route path="merges/:id" element={<Merges />} />
+        <Route path="events" element={<Events />} />
+        <Route path="settings" element={<Settings />} />
+        <Route path="notifications" element={<Notifications />} />
+        <Route path="themes" element={<ThemeMatrix />} />
+      </Route>
+    </Routes>
+  );
+}
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="projects" element={<Projects />} />
-          <Route path="projects/:id" element={<Projects />} />
-          <Route path="tasks" element={<Tasks />} />
-          <Route path="flows" element={<TaskFlows />} />
-          <Route path="flows/:id" element={<TaskFlows />} />
-          <Route path="events" element={<Events />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="notifications" element={<Notifications />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <LayoutRouter />
+        <ThemeSwitcher />
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

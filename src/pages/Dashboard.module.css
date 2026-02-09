@@ -3,47 +3,6 @@
   margin: 0 auto;
 }
 
-/* ─── Header ─── */
-
-.header {
-  margin-bottom: var(--space-8);
-}
-
-.headerContent {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-6);
-}
-
-.titleGroup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--text-primary);
-  line-height: 1.1;
-}
-
-.titleAccent {
-  background: linear-gradient(135deg, var(--amber-400) 0%, var(--amber-600) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.subtitle {
-  font-size: 1rem;
-  color: var(--text-tertiary);
-  font-family: var(--font-serif);
-  font-style: italic;
-}
-
 .projectBadge {
   display: flex;
   flex-direction: column;
@@ -67,196 +26,34 @@
   font-family: var(--font-mono);
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--amber-400);
+  color: var(--accent-400);
 }
 
-/* ─── Metrics Grid ─── */
-
 .metricsGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-4);
   margin-bottom: var(--space-6);
 }
 
 @media (max-width: 1024px) {
   .metricsGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 1fr) !important;
   }
 }
 
 @media (max-width: 640px) {
   .metricsGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
-}
-
-.metricCard {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  overflow: hidden;
-}
-
-.metricIcon {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface-3);
-  border-radius: var(--radius-lg);
-}
-
-.metricContent {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.metricValue {
-  font-size: 1.75rem;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  color: var(--text-primary);
-  line-height: 1;
-}
-
-.metricLabel {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.metricGlow {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  filter: blur(40px);
-  opacity: 0.15;
-  pointer-events: none;
-}
-
-/* ─── Content Grid ─── */
-
-.contentGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4);
 }
 
 @media (max-width: 1024px) {
   .contentGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 }
-
-/* ─── Card Headers ─── */
-
-.cardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.cardTitle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.cardLink {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: 0.75rem;
-  color: var(--amber-500);
-  transition: color var(--duration-fast) var(--ease-out);
-}
-
-.cardLink:hover {
-  color: var(--amber-400);
-}
-
-/* ─── Live Indicator ─── */
-
-.liveIndicator {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--status-success);
-  padding: 2px 8px;
-  background: rgba(34, 197, 94, 0.1);
-  border-radius: var(--radius-sm);
-}
-
-.liveDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--status-success);
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-/* ─── Flow List ─── */
 
 .flowList {
   display: flex;
   flex-direction: column;
-}
-
-.flowItem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-  transition: background var(--duration-fast) var(--ease-out);
-}
-
-.flowItem:last-child {
-  border-bottom: none;
-}
-
-.flowItem:hover {
-  background: var(--surface-2);
-}
-
-.flowInfo {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.flowDetails {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.flowName {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.flowMeta {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
 }
 
 .flowProgress {
@@ -265,64 +62,15 @@
   gap: var(--space-3);
 }
 
-.progressBar {
+.progressBarInline {
   width: 80px;
-  height: 4px;
-  background: var(--surface-3);
-  border-radius: 2px;
-  overflow: hidden;
 }
-
-.progressFill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--amber-500) 0%, var(--amber-400) 100%);
-  border-radius: 2px;
-  transition: width 0.5s var(--ease-out);
-}
-
-/* ─── Event List ─── */
 
 .eventList {
   display: flex;
   flex-direction: column;
   max-height: 400px;
   overflow-y: auto;
-}
-
-.eventItem {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-  transition: background var(--duration-fast) var(--ease-out);
-}
-
-.eventItem:last-child {
-  border-bottom: none;
-}
-
-.eventItem:hover {
-  background: var(--surface-2);
-}
-
-.eventIcon {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface-3);
-  border-radius: var(--radius-sm);
-  color: var(--text-tertiary);
-}
-
-.eventContent {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
 }
 
 .eventType {
@@ -337,100 +85,8 @@
   color: var(--text-muted);
 }
 
-/* ─── Runtime List ─── */
-
 .runtimeList {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-}
-
-.runtimeItem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3);
-  background: var(--surface-2);
-  border-radius: var(--radius-md);
-}
-
-.runtimeInfo {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.runtimeDetails {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.runtimeName {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.runtimeVersion {
-  font-size: 0.6875rem;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-}
-
-/* ─── Task Distribution ─── */
-
-.taskDistribution {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.distributionBar {
-  display: flex;
-  height: 12px;
-  background: var(--surface-3);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.distributionSegment {
-  height: 100%;
-  transition: width 0.5s var(--ease-out);
-}
-
-.distributionLegend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-}
-
-.legendItem {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-}
-
-.legendDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-}
-
-/* ─── Empty State ─── */
-
-.emptyState {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
-  padding: var(--space-10);
-  color: var(--text-tertiary);
-}
-
-.emptyState p {
-  font-size: 0.875rem;
+  gap: var(--space-1);
 }

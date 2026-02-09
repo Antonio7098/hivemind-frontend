@@ -11,66 +11,60 @@ import {
 import { useHivemindStore } from '../stores/hivemindStore';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
+import { PageHeader } from '../components/composites/PageHeader';
+import { EmptyState } from '../components/composites/EmptyState';
 import styles from './Notifications.module.css';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// NOTIFICATIONS PAGE
-// Notification center
-// ═══════════════════════════════════════════════════════════════════════════
 
 const getNotificationIcon = (type: string) => {
   switch (type) {
-    case 'success':
-      return CheckCircle2;
-    case 'warning':
-      return AlertTriangle;
-    case 'error':
-      return XCircle;
-    default:
-      return Info;
+    case 'success': return CheckCircle2;
+    case 'warning': return AlertTriangle;
+    case 'error': return XCircle;
+    default: return Info;
   }
 };
 
 export function Notifications() {
   const { notifications, markNotificationRead, clearNotifications } = useHivemindStore();
-
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.titleGroup}>
-          <h1>Notifications</h1>
-          <p>
-            {unreadCount > 0
-              ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
-              : 'All caught up!'}
-          </p>
-        </div>
-        <div className={styles.actions}>
-          <Button
-            variant="secondary"
-            icon={<CheckCheck size={16} />}
-            onClick={() => notifications.forEach((n) => markNotificationRead(n.id))}
-          >
-            Mark All Read
-          </Button>
-          <Button
-            variant="ghost"
-            icon={<Trash2 size={16} />}
-            onClick={clearNotifications}
-          >
-            Clear All
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Notifications"
+        subtitle={
+          unreadCount > 0
+            ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
+            : 'All caught up!'
+        }
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              icon={<CheckCheck size={16} />}
+              onClick={() => notifications.forEach((n) => markNotificationRead(n.id))}
+            >
+              Mark All Read
+            </Button>
+            <Button
+              variant="ghost"
+              icon={<Trash2 size={16} />}
+              onClick={clearNotifications}
+            >
+              Clear All
+            </Button>
+          </>
+        }
+      />
 
       <div className={styles.notificationList}>
         {notifications.length === 0 ? (
-          <Card variant="outlined" className={styles.emptyState}>
-            <Bell size={48} strokeWidth={1} />
-            <h3>No Notifications</h3>
-            <p>You're all caught up! New notifications will appear here.</p>
+          <Card variant="outlined">
+            <EmptyState
+              icon={<Bell size={48} strokeWidth={1} />}
+              title="No Notifications"
+              description="You're all caught up! New notifications will appear here."
+            />
           </Card>
         ) : (
           notifications.map((notification, index) => {

@@ -4,21 +4,20 @@ import type {
   Task,
   TaskGraph,
   TaskFlow,
+  MergeState,
   HivemindEvent,
   Runtime,
   Notification,
 } from '../types';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MOCK DATA GENERATOR
+// MOCK DATA — Matches exact Rust backend structs
 // ═══════════════════════════════════════════════════════════════════════════
 
 const generateId = () => Math.random().toString(36).substring(2, 10);
 
 const mockRuntimes: Runtime[] = [
-  { id: 'rt-1', name: 'Claude Code', type: 'claude-code', status: 'healthy', version: '1.0.34' },
-  { id: 'rt-2', name: 'Codex CLI', type: 'codex-cli', status: 'healthy', version: '0.9.2' },
-  { id: 'rt-3', name: 'OpenCode', type: 'opencode', status: 'degraded', version: '2.1.0' },
+  { id: 'rt-1', name: 'OpenCode', type: 'opencode', status: 'healthy', version: '2.1.0' },
 ];
 
 const mockProjects: Project[] = [
@@ -26,237 +25,322 @@ const mockProjects: Project[] = [
     id: 'proj-1',
     name: 'hivemind-core',
     description: 'Core orchestration engine for agentic development',
-    createdAt: '2025-01-15T10:00:00Z',
-    updatedAt: '2025-02-07T09:30:00Z',
+    created_at: '2025-01-15T10:00:00Z',
+    updated_at: '2025-02-07T09:30:00Z',
     repositories: [
-      { id: 'repo-1', name: 'hivemind', path: '/home/antonio/programming/hivemind', accessMode: 'rw', attachedAt: '2025-01-15T10:00:00Z' },
+      { name: 'hivemind', path: '/home/antonio/programming/hivemind', access_mode: 'readwrite' },
     ],
-    taskCount: 24,
-    activeFlowCount: 2,
-    status: 'active',
+    runtime: {
+      adapter_name: 'opencode',
+      binary_path: 'opencode',
+      args: [],
+      env: {},
+      timeout_ms: 600000,
+    },
   },
   {
     id: 'proj-2',
     name: 'webapp-refactor',
     description: 'Modernizing the legacy webapp with React and TypeScript',
-    createdAt: '2025-01-20T14:00:00Z',
-    updatedAt: '2025-02-06T16:45:00Z',
+    created_at: '2025-01-20T14:00:00Z',
+    updated_at: '2025-02-06T16:45:00Z',
     repositories: [
-      { id: 'repo-2', name: 'webapp-frontend', path: '/home/antonio/projects/webapp-frontend', accessMode: 'rw', attachedAt: '2025-01-20T14:00:00Z' },
-      { id: 'repo-3', name: 'webapp-backend', path: '/home/antonio/projects/webapp-backend', accessMode: 'rw', attachedAt: '2025-01-20T14:00:00Z' },
+      { name: 'webapp-frontend', path: '/home/antonio/projects/webapp-frontend', access_mode: 'readwrite' },
+      { name: 'webapp-backend', path: '/home/antonio/projects/webapp-backend', access_mode: 'readonly' },
     ],
-    taskCount: 18,
-    activeFlowCount: 1,
-    status: 'active',
+    runtime: null,
   },
   {
     id: 'proj-3',
     name: 'ml-pipeline',
     description: 'Machine learning data pipeline automation',
-    createdAt: '2025-02-01T09:00:00Z',
-    updatedAt: '2025-02-05T11:20:00Z',
+    created_at: '2025-02-01T09:00:00Z',
+    updated_at: '2025-02-05T11:20:00Z',
     repositories: [
-      { id: 'repo-4', name: 'ml-pipeline', path: '/home/antonio/projects/ml-pipeline', accessMode: 'rw', attachedAt: '2025-02-01T09:00:00Z' },
+      { name: 'ml-pipeline', path: '/home/antonio/projects/ml-pipeline', access_mode: 'readwrite' },
     ],
-    taskCount: 8,
-    activeFlowCount: 0,
-    status: 'active',
+    runtime: null,
   },
 ];
 
 const mockTasks: Task[] = [
   {
-    id: 'task-1',
-    projectId: 'proj-1',
-    title: 'Implement TaskFlow scheduler',
+    id: 'task-1', project_id: 'proj-1', title: 'Implement TaskFlow scheduler',
     description: 'Create the core scheduler that releases tasks based on dependency satisfaction',
-    state: 'success',
-    createdAt: '2025-02-01T10:00:00Z',
-    updatedAt: '2025-02-03T15:30:00Z',
-    attempts: [],
-    retryCount: 0,
-    maxRetries: 3,
+    state: 'closed', scope: null,
+    created_at: '2025-02-01T10:00:00Z', updated_at: '2025-02-03T15:30:00Z',
   },
   {
-    id: 'task-2',
-    projectId: 'proj-1',
-    title: 'Add scope enforcement layer',
+    id: 'task-2', project_id: 'proj-1', title: 'Add scope enforcement layer',
     description: 'Implement filesystem and repository scope validation',
-    state: 'running',
-    createdAt: '2025-02-02T09:00:00Z',
-    updatedAt: '2025-02-07T10:15:00Z',
-    attempts: [],
-    retryCount: 0,
-    maxRetries: 3,
+    state: 'open', scope: {
+      filesystem: { rules: [{ pattern: 'src/core/', permission: 'write' }, { pattern: 'tests/', permission: 'write' }] },
+      repositories: [{ repo: 'hivemind', mode: 'readwrite' }],
+      git: { permissions: ['commit', 'branch'] },
+      execution: { allowed: ['cargo test', 'cargo clippy'], denied: ['rm'] },
+    },
+    created_at: '2025-02-02T09:00:00Z', updated_at: '2025-02-07T10:15:00Z',
   },
   {
-    id: 'task-3',
-    projectId: 'proj-1',
-    title: 'Build event replay system',
+    id: 'task-3', project_id: 'proj-1', title: 'Build event replay system',
     description: 'Create deterministic event replay for state reconstruction',
-    state: 'verifying',
-    createdAt: '2025-02-03T11:00:00Z',
-    updatedAt: '2025-02-07T10:00:00Z',
-    attempts: [],
-    retryCount: 1,
-    maxRetries: 3,
+    state: 'open', scope: {
+      filesystem: { rules: [{ pattern: 'src/core/events.rs', permission: 'write' }, { pattern: 'src/core/state.rs', permission: 'write' }] },
+      repositories: [{ repo: 'hivemind', mode: 'readwrite' }],
+      git: { permissions: ['commit'] },
+      execution: { allowed: ['cargo test'], denied: [] },
+    },
+    created_at: '2025-02-03T11:00:00Z', updated_at: '2025-02-07T10:00:00Z',
   },
   {
-    id: 'task-4',
-    projectId: 'proj-1',
-    title: 'Design CLI command structure',
+    id: 'task-4', project_id: 'proj-1', title: 'Design CLI command structure',
     description: 'Define operational semantics for all CLI commands',
-    state: 'pending',
-    createdAt: '2025-02-04T14:00:00Z',
-    updatedAt: '2025-02-04T14:00:00Z',
-    attempts: [],
-    retryCount: 0,
-    maxRetries: 3,
+    state: 'open', scope: null,
+    created_at: '2025-02-04T14:00:00Z', updated_at: '2025-02-04T14:00:00Z',
   },
   {
-    id: 'task-5',
-    projectId: 'proj-1',
-    title: 'Implement verification loop',
-    description: 'Add automated checks and verifier agent integration',
-    state: 'retry',
-    createdAt: '2025-02-05T10:00:00Z',
-    updatedAt: '2025-02-07T09:45:00Z',
-    attempts: [],
-    retryCount: 2,
-    maxRetries: 3,
+    id: 'task-5', project_id: 'proj-1', title: 'Implement verification overrides',
+    description: 'Add human override pass/fail for task verification',
+    state: 'open', scope: null,
+    created_at: '2025-02-05T10:00:00Z', updated_at: '2025-02-07T09:45:00Z',
   },
   {
-    id: 'task-6',
-    projectId: 'proj-1',
-    title: 'Create merge protocol',
-    description: 'Build the merge preparation and approval flow',
-    state: 'failed',
-    createdAt: '2025-02-06T08:00:00Z',
-    updatedAt: '2025-02-07T08:30:00Z',
-    attempts: [],
-    retryCount: 3,
-    maxRetries: 3,
+    id: 'task-6', project_id: 'proj-1', title: 'Create merge protocol',
+    description: 'Build the merge preparation, approval, and execution flow',
+    state: 'open', scope: null,
+    created_at: '2025-02-06T08:00:00Z', updated_at: '2025-02-07T08:30:00Z',
   },
   {
-    id: 'task-7',
-    projectId: 'proj-1',
-    title: 'Add worktree management',
-    description: 'Implement isolated worktree creation and cleanup',
-    state: 'escalated',
-    createdAt: '2025-02-06T13:00:00Z',
-    updatedAt: '2025-02-07T07:00:00Z',
-    attempts: [],
-    retryCount: 3,
-    maxRetries: 3,
+    id: 'task-7', project_id: 'proj-1', title: 'Add worktree management',
+    description: 'Implement isolated worktree creation and cleanup per task',
+    state: 'open', scope: null,
+    created_at: '2025-02-06T13:00:00Z', updated_at: '2025-02-07T07:00:00Z',
+  },
+  {
+    id: 'task-8', project_id: 'proj-2', title: 'Migrate to React Router v7',
+    description: 'Update routing from v5 to v7 patterns',
+    state: 'open', scope: null,
+    created_at: '2025-02-03T10:00:00Z', updated_at: '2025-02-03T10:00:00Z',
+  },
+  {
+    id: 'task-9', project_id: 'proj-2', title: 'Convert class components to hooks',
+    description: 'Refactor all class components to functional with hooks',
+    state: 'open', scope: null,
+    created_at: '2025-02-03T10:30:00Z', updated_at: '2025-02-03T10:30:00Z',
+  },
+  {
+    id: 'task-10', project_id: 'proj-2', title: 'Add TypeScript strict mode',
+    description: 'Enable strict TypeScript and fix all type errors',
+    state: 'closed', scope: null,
+    created_at: '2025-02-02T09:00:00Z', updated_at: '2025-02-04T15:00:00Z',
   },
 ];
 
-const mockTaskFlows: TaskFlow[] = [
+const mockGraphs: TaskGraph[] = [
   {
-    id: 'flow-1',
-    graphId: 'graph-1',
-    projectId: 'proj-1',
-    name: 'Core Implementation Sprint 1',
-    state: 'running',
-    tasks: [
-      { taskId: 'task-1', state: 'success', attemptCount: 1, dependencies: [], dependents: ['task-2', 'task-3'] },
-      { taskId: 'task-2', state: 'running', attemptCount: 1, currentAttemptId: 'att-1', dependencies: ['task-1'], dependents: ['task-4'] },
-      { taskId: 'task-3', state: 'verifying', attemptCount: 2, currentAttemptId: 'att-2', dependencies: ['task-1'], dependents: ['task-4'] },
-      { taskId: 'task-4', state: 'pending', attemptCount: 0, dependencies: ['task-2', 'task-3'], dependents: [] },
-    ],
-    startedAt: '2025-02-05T09:00:00Z',
-    createdAt: '2025-02-04T16:00:00Z',
-    progress: { total: 4, completed: 1, failed: 0, running: 2 },
+    id: 'graph-1', project_id: 'proj-1', name: 'Core Implementation Sprint 1',
+    description: 'Core orchestration engine tasks with dependencies',
+    state: 'locked',
+    tasks: {
+      'task-1': {
+        id: 'task-1', title: 'Implement TaskFlow scheduler',
+        description: 'Create the core scheduler', scope: null,
+        criteria: { description: 'All scheduler tests pass', checks: ['cargo test scheduler'] },
+        retry_policy: { max_retries: 3, escalate_on_failure: true },
+      },
+      'task-2': {
+        id: 'task-2', title: 'Add scope enforcement layer',
+        description: 'Implement filesystem and repository scope validation', scope: null,
+        criteria: { description: 'Scope tests pass, no violations in CI', checks: ['cargo test scope'] },
+        retry_policy: { max_retries: 3, escalate_on_failure: true },
+      },
+      'task-3': {
+        id: 'task-3', title: 'Build event replay system',
+        description: 'Create deterministic event replay', scope: null,
+        criteria: { description: 'Replay is deterministic and idempotent', checks: ['cargo test replay'] },
+        retry_policy: { max_retries: 2, escalate_on_failure: false },
+      },
+      'task-4': {
+        id: 'task-4', title: 'Design CLI command structure',
+        description: 'Define operational semantics for CLI', scope: null,
+        criteria: { description: 'All CLI commands respond correctly', checks: ['cargo test cli'] },
+        retry_policy: { max_retries: 3, escalate_on_failure: true },
+      },
+    },
+    dependencies: {
+      'task-1': [],
+      'task-2': ['task-1'],
+      'task-3': ['task-1'],
+      'task-4': ['task-2', 'task-3'],
+    },
+    created_at: '2025-02-04T16:00:00Z', updated_at: '2025-02-05T09:00:00Z',
   },
   {
-    id: 'flow-2',
-    graphId: 'graph-2',
-    projectId: 'proj-1',
-    name: 'Verification & Merge Sprint',
+    id: 'graph-2', project_id: 'proj-1', name: 'Verification & Merge Sprint',
+    description: 'Human verification and merge workflow implementation',
+    state: 'locked',
+    tasks: {
+      'task-5': {
+        id: 'task-5', title: 'Implement verification overrides',
+        description: 'Add human override pass/fail', scope: null,
+        criteria: { description: 'Override tests pass', checks: ['cargo test verify'] },
+        retry_policy: { max_retries: 3, escalate_on_failure: true },
+      },
+      'task-6': {
+        id: 'task-6', title: 'Create merge protocol',
+        description: 'Build merge preparation and approval', scope: null,
+        criteria: { description: 'Merge lifecycle tests pass', checks: ['cargo test merge'] },
+        retry_policy: { max_retries: 3, escalate_on_failure: true },
+      },
+      'task-7': {
+        id: 'task-7', title: 'Add worktree management',
+        description: 'Isolated worktree per task', scope: null,
+        criteria: { description: 'Worktree creation and cleanup works', checks: ['cargo test worktree'] },
+        retry_policy: { max_retries: 3, escalate_on_failure: true },
+      },
+    },
+    dependencies: {
+      'task-5': [],
+      'task-6': ['task-5'],
+      'task-7': ['task-6'],
+    },
+    created_at: '2025-02-06T09:00:00Z', updated_at: '2025-02-06T10:00:00Z',
+  },
+  {
+    id: 'graph-3', project_id: 'proj-2', name: 'React Modernization',
+    description: 'Modernize React codebase with TypeScript and hooks',
+    state: 'draft',
+    tasks: {
+      'task-8': {
+        id: 'task-8', title: 'Migrate to React Router v7',
+        description: 'Update routing patterns', scope: null,
+        criteria: { description: 'All routes work with v7', checks: ['npm test'] },
+        retry_policy: { max_retries: 2, escalate_on_failure: false },
+      },
+      'task-9': {
+        id: 'task-9', title: 'Convert class components to hooks',
+        description: 'Refactor class components', scope: null,
+        criteria: { description: 'No class components remain', checks: ['npm test'] },
+        retry_policy: { max_retries: 2, escalate_on_failure: false },
+      },
+    },
+    dependencies: {
+      'task-8': [],
+      'task-9': ['task-8'],
+    },
+    created_at: '2025-02-03T10:00:00Z', updated_at: '2025-02-03T11:00:00Z',
+  },
+];
+
+const mockFlows: TaskFlow[] = [
+  {
+    id: 'flow-1', graph_id: 'graph-1', project_id: 'proj-1',
+    state: 'running',
+    task_executions: {
+      'task-1': { task_id: 'task-1', state: 'success', attempt_count: 1, updated_at: '2025-02-05T15:30:00Z', blocked_reason: null },
+      'task-2': { task_id: 'task-2', state: 'running', attempt_count: 1, updated_at: '2025-02-07T10:15:00Z', blocked_reason: null },
+      'task-3': { task_id: 'task-3', state: 'verifying', attempt_count: 2, updated_at: '2025-02-07T10:00:00Z', blocked_reason: null },
+      'task-4': { task_id: 'task-4', state: 'pending', attempt_count: 0, updated_at: '2025-02-05T09:00:00Z', blocked_reason: 'Waiting on task-2, task-3' },
+    },
+    created_at: '2025-02-04T16:00:00Z', started_at: '2025-02-05T09:00:00Z',
+    completed_at: null, updated_at: '2025-02-07T10:15:00Z',
+  },
+  {
+    id: 'flow-2', graph_id: 'graph-2', project_id: 'proj-1',
     state: 'paused',
-    tasks: [
-      { taskId: 'task-5', state: 'retry', attemptCount: 2, dependencies: [], dependents: ['task-6'] },
-      { taskId: 'task-6', state: 'failed', attemptCount: 3, dependencies: ['task-5'], dependents: ['task-7'] },
-      { taskId: 'task-7', state: 'escalated', attemptCount: 3, dependencies: ['task-6'], dependents: [] },
-    ],
-    startedAt: '2025-02-06T10:00:00Z',
-    createdAt: '2025-02-06T09:00:00Z',
-    progress: { total: 3, completed: 0, failed: 2, running: 0 },
+    task_executions: {
+      'task-5': { task_id: 'task-5', state: 'retry', attempt_count: 2, updated_at: '2025-02-07T09:45:00Z', blocked_reason: null },
+      'task-6': { task_id: 'task-6', state: 'failed', attempt_count: 3, updated_at: '2025-02-07T08:30:00Z', blocked_reason: null },
+      'task-7': { task_id: 'task-7', state: 'escalated', attempt_count: 3, updated_at: '2025-02-07T07:00:00Z', blocked_reason: null },
+    },
+    created_at: '2025-02-06T09:00:00Z', started_at: '2025-02-06T10:00:00Z',
+    completed_at: null, updated_at: '2025-02-07T09:45:00Z',
+  },
+];
+
+const mockMergeStates: MergeState[] = [
+  {
+    flow_id: 'flow-1',
+    status: 'prepared',
+    target_branch: 'main',
+    conflicts: [],
+    commits: [],
+    updated_at: '2025-02-07T10:00:00Z',
   },
 ];
 
 const mockEvents: HivemindEvent[] = [
   {
-    id: 'evt-1',
-    type: 'TaskFlowStarted',
-    category: 'taskflow',
-    timestamp: '2025-02-07T10:15:32Z',
-    correlations: { projectId: 'proj-1', taskFlowId: 'flow-1' },
-    actor: { type: 'human', id: 'user-1', name: 'antonio' },
-    payload: { flowName: 'Core Implementation Sprint 1' },
+    id: 'evt-1', type: 'TaskFlowStarted', category: 'flow',
+    timestamp: '2025-02-07T10:15:32Z', sequence: 1,
+    correlation: { project_id: 'proj-1', graph_id: 'graph-1', flow_id: 'flow-1', task_id: null, attempt_id: null },
+    payload: {},
   },
   {
-    id: 'evt-2',
-    type: 'TaskExecutionStarted',
-    category: 'task',
-    timestamp: '2025-02-07T10:15:33Z',
-    correlations: { projectId: 'proj-1', taskFlowId: 'flow-1', taskId: 'task-2' },
-    actor: { type: 'system', id: 'scheduler' },
-    payload: { taskTitle: 'Add scope enforcement layer' },
+    id: 'evt-2', type: 'TaskExecutionStateChanged', category: 'execution',
+    timestamp: '2025-02-07T10:15:33Z', sequence: 2,
+    correlation: { project_id: 'proj-1', graph_id: 'graph-1', flow_id: 'flow-1', task_id: 'task-2', attempt_id: null },
+    payload: { from: 'ready', to: 'running' },
   },
   {
-    id: 'evt-3',
-    type: 'AttemptStarted',
-    category: 'attempt',
-    timestamp: '2025-02-07T10:15:34Z',
-    correlations: { projectId: 'proj-1', taskFlowId: 'flow-1', taskId: 'task-2', attemptId: 'att-1' },
-    actor: { type: 'agent', id: 'agent-1', name: 'Claude Code Worker' },
-    payload: { runtime: 'claude-code' },
+    id: 'evt-3', type: 'AttemptStarted', category: 'execution',
+    timestamp: '2025-02-07T10:15:34Z', sequence: 3,
+    correlation: { project_id: 'proj-1', graph_id: 'graph-1', flow_id: 'flow-1', task_id: 'task-2', attempt_id: 'att-1' },
+    payload: { attempt_number: 1 },
   },
   {
-    id: 'evt-4',
-    type: 'FileModified',
-    category: 'filesystem',
-    timestamp: '2025-02-07T10:16:45Z',
-    correlations: { projectId: 'proj-1', taskFlowId: 'flow-1', taskId: 'task-2', attemptId: 'att-1' },
-    actor: { type: 'agent', id: 'agent-1' },
-    payload: { file: 'src/scope/enforcement.rs', additions: 142, deletions: 0 },
+    id: 'evt-4', type: 'FileModified', category: 'filesystem',
+    timestamp: '2025-02-07T10:16:45Z', sequence: 4,
+    correlation: { project_id: 'proj-1', graph_id: 'graph-1', flow_id: 'flow-1', task_id: 'task-2', attempt_id: 'att-1' },
+    payload: { path: 'src/core/enforcement.rs', change_type: 'modified' },
   },
   {
-    id: 'evt-5',
-    type: 'VerificationStarted',
-    category: 'verification',
-    timestamp: '2025-02-07T10:18:00Z',
-    correlations: { projectId: 'proj-1', taskFlowId: 'flow-1', taskId: 'task-3', attemptId: 'att-2' },
-    actor: { type: 'system', id: 'verifier' },
-    payload: { automatedChecks: ['test', 'lint', 'typecheck'] },
+    id: 'evt-5', type: 'TaskExecutionStateChanged', category: 'execution',
+    timestamp: '2025-02-07T10:18:00Z', sequence: 5,
+    correlation: { project_id: 'proj-1', graph_id: 'graph-1', flow_id: 'flow-1', task_id: 'task-3', attempt_id: null },
+    payload: { from: 'running', to: 'verifying' },
   },
   {
-    id: 'evt-6',
-    type: 'ScopeViolationDetected',
-    category: 'scope',
-    timestamp: '2025-02-07T10:17:22Z',
-    correlations: { projectId: 'proj-1', taskFlowId: 'flow-2', taskId: 'task-6', attemptId: 'att-3' },
-    actor: { type: 'system', id: 'scope-enforcer' },
-    payload: { violatedPath: '/etc/passwd', reason: 'Write to forbidden path' },
+    id: 'evt-6', type: 'TaskRetryRequested', category: 'execution',
+    timestamp: '2025-02-07T10:17:22Z', sequence: 6,
+    correlation: { project_id: 'proj-1', graph_id: 'graph-2', flow_id: 'flow-2', task_id: 'task-5', attempt_id: null },
+    payload: { reset_count: false },
   },
   {
-    id: 'evt-7',
-    type: 'TaskEscalated',
-    category: 'task',
-    timestamp: '2025-02-07T10:19:00Z',
-    correlations: { projectId: 'proj-1', taskFlowId: 'flow-2', taskId: 'task-7' },
-    actor: { type: 'system', id: 'scheduler' },
-    payload: { reason: 'Maximum retries exceeded', requiresHumanIntervention: true },
+    id: 'evt-7', type: 'HumanOverride', category: 'verification',
+    timestamp: '2025-02-07T10:19:00Z', sequence: 7,
+    correlation: { project_id: 'proj-1', graph_id: 'graph-2', flow_id: 'flow-2', task_id: 'task-7', attempt_id: null },
+    payload: { decision: 'fail', reason: 'Maximum retries exceeded, needs manual intervention' },
   },
   {
-    id: 'evt-8',
-    type: 'RuntimeHealthChanged',
-    category: 'runtime',
-    timestamp: '2025-02-07T10:20:15Z',
-    correlations: {},
-    actor: { type: 'system', id: 'health-monitor' },
-    payload: { runtime: 'opencode', previousStatus: 'healthy', newStatus: 'degraded' },
+    id: 'evt-8', type: 'TaskFlowPaused', category: 'flow',
+    timestamp: '2025-02-07T10:20:15Z', sequence: 8,
+    correlation: { project_id: 'proj-1', graph_id: 'graph-2', flow_id: 'flow-2', task_id: null, attempt_id: null },
+    payload: { running_tasks: [] },
+  },
+  {
+    id: 'evt-9', type: 'MergePrepared', category: 'merge',
+    timestamp: '2025-02-07T10:21:00Z', sequence: 9,
+    correlation: { project_id: 'proj-1', graph_id: 'graph-1', flow_id: 'flow-1', task_id: null, attempt_id: null },
+    payload: { target_branch: 'main', conflicts: [] },
+  },
+  {
+    id: 'evt-10', type: 'RepositoryAttached', category: 'project',
+    timestamp: '2025-02-07T10:22:00Z', sequence: 10,
+    correlation: { project_id: 'proj-2', graph_id: null, flow_id: null, task_id: null, attempt_id: null },
+    payload: { name: 'webapp-backend', path: '/home/antonio/projects/webapp-backend', access_mode: 'readonly' },
+  },
+  {
+    id: 'evt-11', type: 'TaskGraphCreated', category: 'graph',
+    timestamp: '2025-02-07T10:23:00Z', sequence: 11,
+    correlation: { project_id: 'proj-2', graph_id: 'graph-3', flow_id: null, task_id: null, attempt_id: null },
+    payload: { name: 'React Modernization' },
+  },
+  {
+    id: 'evt-12', type: 'TaskCreated', category: 'task',
+    timestamp: '2025-02-07T10:24:00Z', sequence: 12,
+    correlation: { project_id: 'proj-1', graph_id: null, flow_id: null, task_id: 'task-7', attempt_id: null },
+    payload: { title: 'Add worktree management' },
   },
 ];
 
@@ -268,24 +352,21 @@ interface HivemindStore {
   // ─── Data ───
   projects: Project[];
   tasks: Task[];
-  taskGraphs: TaskGraph[];
-  taskFlows: TaskFlow[];
+  graphs: TaskGraph[];
+  flows: TaskFlow[];
+  mergeStates: MergeState[];
   events: HivemindEvent[];
   runtimes: Runtime[];
   notifications: Notification[];
 
   // ─── UI State ───
   selectedProjectId: string | null;
-  selectedTaskFlowId: string | null;
-  selectedTaskId: string | null;
   sidebarCollapsed: boolean;
   commandPaletteOpen: boolean;
   eventStreamPaused: boolean;
 
   // ─── Actions ───
   setSelectedProject: (id: string | null) => void;
-  setSelectedTaskFlow: (id: string | null) => void;
-  setSelectedTask: (id: string | null) => void;
   toggleSidebar: () => void;
   toggleCommandPalette: () => void;
   toggleEventStream: () => void;
@@ -294,12 +375,13 @@ interface HivemindStore {
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
 
-  // ─── Getters ───
+  // ─── Derived ───
   getProject: (id: string) => Project | undefined;
   getTasksForProject: (projectId: string) => Task[];
-  getTaskFlowsForProject: (projectId: string) => TaskFlow[];
-  getEventsForFlow: (flowId: string) => HivemindEvent[];
-  getTaskById: (id: string) => Task | undefined;
+  getGraphsForProject: (projectId: string) => TaskGraph[];
+  getFlowsForProject: (projectId: string) => TaskFlow[];
+  getGraphForFlow: (flow: TaskFlow) => TaskGraph | undefined;
+  getFlowExecStats: (flow: TaskFlow) => Record<string, number>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -310,91 +392,71 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
   // ─── Initial Data ───
   projects: mockProjects,
   tasks: mockTasks,
-  taskGraphs: [],
-  taskFlows: mockTaskFlows,
+  graphs: mockGraphs,
+  flows: mockFlows,
+  mergeStates: mockMergeStates,
   events: mockEvents,
   runtimes: mockRuntimes,
   notifications: [
     {
-      id: 'notif-1',
-      type: 'warning',
-      title: 'Task Escalated',
-      message: 'Task "Add worktree management" requires human intervention',
-      timestamp: '2025-02-07T10:19:00Z',
-      read: false,
+      id: 'notif-1', type: 'warning', title: 'Task Escalated',
+      message: 'Task "Add worktree management" escalated — requires human intervention',
+      timestamp: '2025-02-07T10:19:00Z', read: false,
     },
     {
-      id: 'notif-2',
-      type: 'error',
-      title: 'Scope Violation',
-      message: 'Attempted write to forbidden path in task "Create merge protocol"',
-      timestamp: '2025-02-07T10:17:22Z',
-      read: false,
+      id: 'notif-2', type: 'info', title: 'Flow Paused',
+      message: 'Verification & Merge Sprint paused due to failures',
+      timestamp: '2025-02-07T10:20:15Z', read: false,
     },
     {
-      id: 'notif-3',
-      type: 'info',
-      title: 'Runtime Degraded',
-      message: 'OpenCode runtime experiencing connection issues',
-      timestamp: '2025-02-07T10:20:15Z',
-      read: true,
+      id: 'notif-3', type: 'success', title: 'Merge Prepared',
+      message: 'Core Implementation Sprint 1 merge prepared for main',
+      timestamp: '2025-02-07T10:21:00Z', read: true,
     },
   ],
 
   // ─── UI State ───
   selectedProjectId: 'proj-1',
-  selectedTaskFlowId: null,
-  selectedTaskId: null,
   sidebarCollapsed: false,
   commandPaletteOpen: false,
   eventStreamPaused: false,
 
   // ─── Actions ───
   setSelectedProject: (id) => set({ selectedProjectId: id }),
-  setSelectedTaskFlow: (id) => set({ selectedTaskFlowId: id }),
-  setSelectedTask: (id) => set({ selectedTaskId: id }),
-  toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-  toggleCommandPalette: () => set((state) => ({ commandPaletteOpen: !state.commandPaletteOpen })),
-  toggleEventStream: () => set((state) => ({ eventStreamPaused: !state.eventStreamPaused })),
+  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+  toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
+  toggleEventStream: () => set((s) => ({ eventStreamPaused: !s.eventStreamPaused })),
 
   addEvent: (event) =>
-    set((state) => ({
-      events: [event, ...state.events],
-    })),
+    set((s) => ({ events: [event, ...s.events] })),
 
   addNotification: (notification) =>
-    set((state) => ({
+    set((s) => ({
       notifications: [
-        {
-          ...notification,
-          id: generateId(),
-          timestamp: new Date().toISOString(),
-          read: false,
-        },
-        ...state.notifications,
+        { ...notification, id: generateId(), timestamp: new Date().toISOString(), read: false },
+        ...s.notifications,
       ],
     })),
 
   markNotificationRead: (id) =>
-    set((state) => ({
-      notifications: state.notifications.map((n) =>
-        n.id === id ? { ...n, read: true } : n
-      ),
+    set((s) => ({
+      notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
     })),
 
   clearNotifications: () => set({ notifications: [] }),
 
-  // ─── Getters ───
+  // ─── Derived ───
   getProject: (id) => get().projects.find((p) => p.id === id),
+  getTasksForProject: (projectId) => get().tasks.filter((t) => t.project_id === projectId),
+  getGraphsForProject: (projectId) => get().graphs.filter((g) => g.project_id === projectId),
+  getFlowsForProject: (projectId) => get().flows.filter((f) => f.project_id === projectId),
+  getGraphForFlow: (flow) => get().graphs.find((g) => g.id === flow.graph_id),
 
-  getTasksForProject: (projectId) =>
-    get().tasks.filter((t) => t.projectId === projectId),
-
-  getTaskFlowsForProject: (projectId) =>
-    get().taskFlows.filter((f) => f.projectId === projectId),
-
-  getEventsForFlow: (flowId) =>
-    get().events.filter((e) => e.correlations.taskFlowId === flowId),
-
-  getTaskById: (id) => get().tasks.find((t) => t.id === id),
+  getFlowExecStats: (flow) => {
+    const stats: Record<string, number> = {};
+    for (const exec of Object.values(flow.task_executions)) {
+      stats[exec.state] = (stats[exec.state] || 0) + 1;
+    }
+    return stats;
+  },
 }));

@@ -1,0 +1,32 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) 0;
+  gap: var(--space-4);
+}
+
+.row + .row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.desc {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.control {
+  flex-shrink: 0;
+}

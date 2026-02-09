@@ -4,193 +4,6 @@
   position: relative;
 }
 
-.header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: var(--space-6);
-}
-
-.titleGroup h1 {
-  margin-bottom: var(--space-1);
-}
-
-.titleGroup p {
-  font-size: 0.9375rem;
-  color: var(--text-tertiary);
-}
-
-.actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-/* ─── View Toggle ─── */
-
-.viewToggle {
-  display: flex;
-  background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 2px;
-}
-
-.viewBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  color: var(--text-tertiary);
-  transition: all var(--duration-fast) var(--ease-out);
-}
-
-.viewBtn:hover {
-  color: var(--text-primary);
-}
-
-.viewBtn.active {
-  background: var(--surface-4);
-  color: var(--amber-400);
-}
-
-/* ─── Kanban Board ─── */
-
-.kanbanBoard {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--space-4);
-  min-height: calc(100vh - 200px);
-}
-
-@media (max-width: 1400px) {
-  .kanbanBoard {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 900px) {
-  .kanbanBoard {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  background: var(--surface-0);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.columnHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-1);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.columnIndicator {
-  width: 4px;
-  height: 16px;
-  border-radius: 2px;
-}
-
-.columnTitle {
-  flex: 1;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.columnContent {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  overflow-y: auto;
-}
-
-/* ─── Task Card ─── */
-
-.taskCard {
-  cursor: pointer;
-  padding: var(--space-3) !important;
-}
-
-.taskCard.selected {
-  border-color: var(--amber-500);
-  box-shadow: 0 0 0 1px var(--amber-500);
-}
-
-.taskHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-2);
-}
-
-.retryBadge {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 6px;
-  background: rgba(245, 158, 11, 0.15);
-  border-radius: var(--radius-sm);
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: var(--amber-400);
-}
-
-.taskTitle {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin-bottom: var(--space-1);
-  line-height: 1.4;
-}
-
-.taskDesc {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  line-height: 1.4;
-  margin-bottom: var(--space-2);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.taskMeta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.taskId {
-  font-size: 0.6875rem;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-}
-
-.escalatedIcon {
-  color: var(--state-escalated);
-}
-
-.emptyColumn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-}
-
 /* ─── List View ─── */
 
 .listView {
@@ -200,128 +13,66 @@
   overflow: hidden;
 }
 
-.listHeader {
-  display: grid;
-  grid-template-columns: 140px 1fr 80px 120px 40px;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-0);
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
+/* ─── Task Row Content ─── */
 
-.listRow {
-  display: grid;
-  grid-template-columns: 140px 1fr 80px 120px 40px;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-  align-items: center;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out);
-}
-
-.listRow:last-child {
-  border-bottom: none;
-}
-
-.listRow:hover {
-  background: var(--surface-2);
-}
-
-.listColTitle {
+.taskTitleRow {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: var(--space-3);
 }
 
-.taskTitleList {
+.taskTitle {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-primary);
 }
 
-.taskIdList {
-  font-size: 0.6875rem;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-}
-
-.listColRetries {
-  text-align: center;
-}
-
-.retryCount {
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  color: var(--text-tertiary);
-}
-
-.retryCount.hasRetries {
-  color: var(--amber-400);
-}
-
-.listColUpdated {
+.taskTags {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.taskSubtitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.taskDesc {
   font-size: 0.75rem;
   color: var(--text-tertiary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
 }
 
-.listColActions {
+.taskMeta {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.6875rem;
   color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-/* ─── Detail Panel ─── */
-
-.detailPanel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 420px;
-  height: 100vh;
-  background: var(--surface-1);
-  border-left: 1px solid var(--border-default);
-  box-shadow: var(--shadow-lg);
-  z-index: var(--z-modal);
-  overflow-y: auto;
+.chevron {
+  color: var(--text-muted);
+  transition: transform var(--duration-fast) var(--ease-out);
 }
+
+/* ─── Detail Panel Content ─── */
 
 .detailHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface-0);
-}
-
-.closeBtn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  color: var(--text-tertiary);
-  border-radius: var(--radius-sm);
-  transition: all var(--duration-fast) var(--ease-out);
-}
-
-.closeBtn:hover {
-  background: var(--surface-3);
-  color: var(--text-primary);
-}
-
-.detailContent {
-  padding: var(--space-5);
+  gap: var(--space-2);
 }
 
 .detailTitle {
@@ -351,36 +102,58 @@
   margin-bottom: var(--space-3);
 }
 
-.detailGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
-}
+/* ─── Scope Display ─── */
 
-.detailItem {
+.scopeContainer {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: var(--space-3);
-  background: var(--surface-2);
+  gap: var(--space-4);
+}
+
+.scopeSection {
+  background: var(--surface-0);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
+  padding: var(--space-3);
 }
 
-.detailLabel {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
+.scopeSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.detailValue {
-  font-size: 0.8125rem;
+.scopeList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.scopeItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.scopePattern {
+  font-size: 0.75rem;
   font-family: var(--font-mono);
   color: var(--text-primary);
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
 }
 
-.detailActions {
+.scopeTags {
   display: flex;
-  gap: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }

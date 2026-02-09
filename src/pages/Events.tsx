@@ -1,58 +1,72 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Activity,
   Pause,
   Play,
   Download,
   Zap,
-  GitBranch,
   Shield,
-  CheckCircle2,
-  User,
-  Settings,
   FileText,
   Terminal,
+  FolderKanban,
+  ListTodo,
+  Network,
+  GitMerge,
 } from 'lucide-react';
 import { useHivemindStore } from '../stores/hivemindStore';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
-import type { HivemindEvent, EventCategory } from '../types';
+import { PageHeader } from '../components/composites/PageHeader';
+import { FilterBar } from '../components/composites/FilterBar';
+import { LiveIndicator } from '../components/composites/LiveIndicator';
+import { KeyValueGrid } from '../components/composites/KeyValueGrid';
+import type { HivemindEvent, EventCategory, CorrelationIds } from '../types';
 import styles from './Events.module.css';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EVENTS PAGE
-// Live event stream with filtering
+// CATEGORY CONFIG — icon + color per EventCategory
 // ═══════════════════════════════════════════════════════════════════════════
 
-const categoryConfig: Record<EventCategory, { icon: typeof Activity; color: string }> = {
-  project: { icon: FileText, color: 'var(--text-tertiary)' },
-  taskgraph: { icon: GitBranch, color: 'var(--status-info)' },
-  taskflow: { icon: GitBranch, color: 'var(--amber-400)' },
-  task: { icon: Zap, color: 'var(--status-info)' },
-  attempt: { icon: Play, color: 'var(--state-running)' },
-  agent: { icon: Terminal, color: 'var(--state-verifying)' },
-  runtime: { icon: Settings, color: 'var(--text-secondary)' },
-  scope: { icon: Shield, color: 'var(--status-warning)' },
-  filesystem: { icon: FileText, color: 'var(--text-tertiary)' },
-  verification: { icon: CheckCircle2, color: 'var(--state-verifying)' },
-  merge: { icon: GitBranch, color: 'var(--state-success)' },
-  human: { icon: User, color: 'var(--amber-500)' },
+const categoryConfig: Record<EventCategory, { icon: typeof Zap; color: string }> = {
+  project:      { icon: FolderKanban, color: 'var(--text-tertiary)' },
+  task:         { icon: ListTodo,     color: 'var(--status-info)' },
+  graph:        { icon: Network,      color: 'var(--accent-400)' },
+  flow:         { icon: Play,         color: 'var(--state-running)' },
+  execution:    { icon: Zap,          color: 'var(--accent-500)' },
+  verification: { icon: Shield,       color: 'var(--state-verifying)' },
+  merge:        { icon: GitMerge,     color: 'var(--state-success)' },
+  runtime:      { icon: Terminal,     color: 'var(--text-secondary)' },
+  filesystem:   { icon: FileText,     color: 'var(--text-tertiary)' },
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SEVERITY — derived from EventType string keywords
+// ═══════════════════════════════════════════════════════════════════════════
+
 const getEventSeverity = (event: HivemindEvent): 'info' | 'warning' | 'error' | 'success' => {
-  if (event.type.includes('Failed') || event.type.includes('Error') || event.type.includes('Violation')) {
-    return 'error';
-  }
-  if (event.type.includes('Escalated') || event.type.includes('Warning') || event.type.includes('Degraded')) {
-    return 'warning';
-  }
-  if (event.type.includes('Success') || event.type.includes('Completed') || event.type.includes('Passed')) {
-    return 'success';
-  }
+  const t = event.type;
+  if (/Error|Failed|Aborted|Violated/.test(t)) return 'error';
+  if (/Retry|Paused|Blocked/.test(t)) return 'warning';
+  if (/Completed|Success|Approved/.test(t)) return 'success';
   return 'info';
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CORRELATION LABEL MAP — snake_case field → display label
+// ═══════════════════════════════════════════════════════════════════════════
+
+const correlationLabels: Record<keyof CorrelationIds, string> = {
+  project_id: 'Project',
+  graph_id:   'Graph',
+  flow_id:    'Flow',
+  task_id:    'Task',
+  attempt_id: 'Attempt',
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EVENTS PAGE
+// ═══════════════════════════════════════════════════════════════════════════
 
 export function Events() {
   const { events, eventStreamPaused, toggleEventStream } = useHivemindStore();
@@ -60,87 +74,78 @@ export function Events() {
   const [selectedEvent, setSelectedEvent] = useState<HivemindEvent | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // ─── Filtering ─────────────────────────────────────────────────────────
   const filteredEvents = selectedCategories.size > 0
     ? events.filter((e) => selectedCategories.has(e.category))
     : events;
 
-  const toggleCategory = (category: EventCategory) => {
-    const newSet = new Set(selectedCategories);
-    if (newSet.has(category)) {
-      newSet.delete(category);
-    } else {
-      newSet.add(category);
-    }
-    setSelectedCategories(newSet);
+  const toggleCategory = (id: string) => {
+    const category = id as EventCategory;
+    const next = new Set(selectedCategories);
+    if (next.has(category)) next.delete(category);
+    else next.add(category);
+    setSelectedCategories(next);
   };
 
-  // Auto-scroll when new events arrive (if not paused)
+  // Auto-scroll to top when new events arrive (while not paused)
   useEffect(() => {
-    if (!eventStreamPaused && listRef.current) {
-      listRef.current.scrollTop = 0;
-    }
+    if (!eventStreamPaused && listRef.current) listRef.current.scrollTop = 0;
   }, [events, eventStreamPaused]);
+
+  // ─── Filter Chips ──────────────────────────────────────────────────────
+  const filterChips = (Object.keys(categoryConfig) as EventCategory[]).map((cat) => {
+    const Icon = categoryConfig[cat].icon;
+    return {
+      id: cat,
+      label: cat,
+      icon: <Icon size={12} />,
+      active: selectedCategories.has(cat),
+    };
+  });
+
+  // ─── Export handler ────────────────────────────────────────────────────
+  const handleExport = () => {
+    const blob = new Blob([JSON.stringify(filteredEvents, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hivemind-events-${new Date().toISOString().slice(0, 19)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.titleGroup}>
-          <h1>Event Stream</h1>
-          <p>Real-time observability into system behavior</p>
-        </div>
-        <div className={styles.actions}>
-          <Button
-            variant={eventStreamPaused ? 'primary' : 'secondary'}
-            icon={eventStreamPaused ? <Play size={16} /> : <Pause size={16} />}
-            onClick={toggleEventStream}
-          >
-            {eventStreamPaused ? 'Resume' : 'Pause'}
-          </Button>
-          <Button variant="secondary" icon={<Download size={16} />}>
-            Export
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Event Stream"
+        subtitle="Real-time observability into system behavior"
+        actions={
+          <>
+            <Button
+              variant={eventStreamPaused ? 'primary' : 'secondary'}
+              icon={eventStreamPaused ? <Play size={16} /> : <Pause size={16} />}
+              onClick={toggleEventStream}
+            >
+              {eventStreamPaused ? 'Resume' : 'Pause'}
+            </Button>
+            <Button variant="secondary" icon={<Download size={16} />} onClick={handleExport}>
+              Export
+            </Button>
+          </>
+        }
+      />
 
-      {/* Filter Bar */}
-      <div className={styles.filterBar}>
-        <span className={styles.filterLabel}>Filter by category:</span>
-        <div className={styles.filterChips}>
-          {(Object.keys(categoryConfig) as EventCategory[]).map((category) => {
-            const config = categoryConfig[category];
-            const isActive = selectedCategories.has(category);
-            return (
-              <button
-                key={category}
-                className={`${styles.filterChip} ${isActive ? styles.active : ''}`}
-                onClick={() => toggleCategory(category)}
-              >
-                <config.icon size={12} />
-                <span>{category}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <FilterBar
+        label="Filter by category:"
+        chips={filterChips}
+        onToggle={toggleCategory}
+      />
 
       <div className={styles.content}>
-        {/* Event List */}
+        {/* ─── Left: Event List ─────────────────────────────────────────── */}
         <div className={styles.eventListContainer}>
           <div className={styles.listHeader}>
-            <div className={styles.liveIndicator}>
-              {!eventStreamPaused && (
-                <>
-                  <span className={styles.liveDot} />
-                  <span>Live</span>
-                </>
-              )}
-              {eventStreamPaused && (
-                <>
-                  <Pause size={12} />
-                  <span>Paused</span>
-                </>
-              )}
-            </div>
+            <LiveIndicator live={!eventStreamPaused} />
             <span className={styles.eventCount}>{filteredEvents.length} events</span>
           </div>
 
@@ -150,7 +155,6 @@ export function Events() {
                 const config = categoryConfig[event.category];
                 const severity = getEventSeverity(event);
                 const Icon = config.icon;
-
                 return (
                   <motion.div
                     key={event.id}
@@ -171,12 +175,10 @@ export function Events() {
                         </span>
                       </div>
                       <div className={styles.eventBottom}>
-                        <Badge variant="default" size="sm">
-                          {event.category}
-                        </Badge>
-                        <span className={styles.eventActor}>
-                          {event.actor.type}: {event.actor.name || event.actor.id}
-                        </span>
+                        <Badge variant="default" size="sm">{event.category}</Badge>
+                        {event.sequence !== null && (
+                          <span className={styles.eventSequence}>#{event.sequence}</span>
+                        )}
                       </div>
                     </div>
                     <div className={`${styles.severityIndicator} ${styles[severity]}`} />
@@ -187,7 +189,7 @@ export function Events() {
           </div>
         </div>
 
-        {/* Event Detail */}
+        {/* ─── Right: Event Detail Panel ───────────────────────────────── */}
         <AnimatePresence>
           {selectedEvent && (
             <motion.div
@@ -199,56 +201,47 @@ export function Events() {
               <Card variant="elevated" padding="none">
                 <div className={styles.detailHeader}>
                   <h3>{selectedEvent.type}</h3>
-                  <button
-                    className={styles.closeBtn}
-                    onClick={() => setSelectedEvent(null)}
-                  >
+                  <button className={styles.closeBtn} onClick={() => setSelectedEvent(null)}>
                     &times;
                   </button>
                 </div>
                 <div className={styles.detailContent}>
+                  {/* Event Info */}
                   <div className={styles.detailSection}>
                     <h4>Event Info</h4>
-                    <div className={styles.detailGrid}>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Event ID</span>
-                        <span className={styles.detailValue}>{selectedEvent.id}</span>
-                      </div>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Category</span>
-                        <span className={styles.detailValue}>{selectedEvent.category}</span>
-                      </div>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Timestamp</span>
-                        <span className={styles.detailValue}>
-                          {new Date(selectedEvent.timestamp).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Actor</span>
-                        <span className={styles.detailValue}>
-                          {selectedEvent.actor.name || selectedEvent.actor.id} ({selectedEvent.actor.type})
-                        </span>
-                      </div>
-                    </div>
+                    <KeyValueGrid
+                      items={[
+                        { label: 'ID', value: selectedEvent.id },
+                        { label: 'Type', value: selectedEvent.type },
+                        { label: 'Category', value: selectedEvent.category },
+                        { label: 'Timestamp', value: new Date(selectedEvent.timestamp).toLocaleString() },
+                        { label: 'Sequence', value: selectedEvent.sequence ?? 'N/A' },
+                      ]}
+                    />
                   </div>
 
-                  {Object.keys(selectedEvent.correlations).length > 0 && (
+                  {/* Correlation IDs — only non-null values */}
+                  {Object.values(selectedEvent.correlation).some((v) => v !== null) && (
                     <div className={styles.detailSection}>
-                      <h4>Correlations</h4>
+                      <h4>Correlation IDs</h4>
                       <div className={styles.correlations}>
-                        {Object.entries(selectedEvent.correlations).map(([key, value]) =>
-                          value ? (
-                            <div key={key} className={styles.correlation}>
-                              <span className={styles.corrKey}>{key}</span>
-                              <span className={styles.corrValue}>{value}</span>
-                            </div>
-                          ) : null
+                        {(Object.keys(selectedEvent.correlation) as (keyof CorrelationIds)[]).map(
+                          (key) => {
+                            const value = selectedEvent.correlation[key];
+                            if (value === null) return null;
+                            return (
+                              <div key={key} className={styles.correlation}>
+                                <span className={styles.corrKey}>{correlationLabels[key]}</span>
+                                <Badge variant="amber" size="sm">{value}</Badge>
+                              </div>
+                            );
+                          },
                         )}
                       </div>
                     </div>
                   )}
 
+                  {/* Payload */}
                   <div className={styles.detailSection}>
                     <h4>Payload</h4>
                     <pre className={styles.payload}>

@@ -4,13 +4,16 @@ import {
   LayoutDashboard,
   FolderKanban,
   ListTodo,
-  GitBranch,
+  Network,
+  Play,
   Activity,
+  GitMerge,
   Settings,
   ChevronLeft,
   Hexagon,
   Bell,
   Search,
+  Palette,
 } from 'lucide-react';
 import { useHivemindStore } from '../stores/hivemindStore';
 import { StatusIndicator } from './StatusIndicator';
@@ -25,8 +28,11 @@ const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/projects', icon: FolderKanban, label: 'Projects' },
   { path: '/tasks', icon: ListTodo, label: 'Tasks' },
-  { path: '/flows', icon: GitBranch, label: 'TaskFlows' },
+  { path: '/graphs', icon: Network, label: 'Graphs' },
+  { path: '/flows', icon: Play, label: 'Flows' },
+  { path: '/merges', icon: GitMerge, label: 'Merges' },
   { path: '/events', icon: Activity, label: 'Events' },
+  { path: '/themes', icon: Palette, label: 'Themes' },
 ];
 
 export function Sidebar() {

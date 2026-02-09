@@ -1,38 +1,141 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // HIVEMIND TYPE DEFINITIONS
-// Based on architecture docs
+// Matched to Rust backend structs (src/core/)
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PROJECT TYPES
+// SCOPE MODEL (src/core/scope.rs)
 // ─────────────────────────────────────────────────────────────────────────────
+
+export type FilePermission = 'read' | 'write' | 'deny';
+
+export interface PathRule {
+  pattern: string;
+  permission: FilePermission;
+}
+
+export interface FilesystemScope {
+  rules: PathRule[];
+}
+
+export type RepoAccessMode = 'readonly' | 'readwrite';
+
+export interface RepositoryScope {
+  repo: string;
+  mode: RepoAccessMode;
+}
+
+export type GitPermission = 'commit' | 'branch' | 'push';
+
+export interface GitScope {
+  permissions: GitPermission[];
+}
+
+export interface ExecutionScope {
+  allowed: string[];
+  denied: string[];
+}
+
+export interface Scope {
+  filesystem: FilesystemScope;
+  repositories: RepositoryScope[];
+  git: GitScope;
+  execution: ExecutionScope;
+}
+
+export type ScopeCompatibility = 'compatible' | 'soft_conflict' | 'hard_conflict';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROJECT (src/core/state.rs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ProjectRuntimeConfig {
+  adapter_name: string;
+  binary_path: string;
+  args: string[];
+  env: Record<string, string>;
+  timeout_ms: number;
+}
+
+export interface Repository {
+  name: string;
+  path: string;
+  access_mode: RepoAccessMode;
+}
 
 export interface Project {
   id: string;
   name: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
   repositories: Repository[];
-  taskCount: number;
-  activeFlowCount: number;
-  status: 'active' | 'archived';
+  runtime: ProjectRuntimeConfig | null;
 }
 
-export interface Repository {
+// ─────────────────────────────────────────────────────────────────────────────
+// TASK (src/core/state.rs) — simple Open/Closed items
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type TaskState = 'open' | 'closed';
+
+export interface Task {
   id: string;
-  name: string;
-  path: string;
-  accessMode: 'ro' | 'rw';
-  attachedAt: string;
+  project_id: string;
+  title: string;
+  description: string | null;
+  scope: Scope | null;
+  state: TaskState;
+  created_at: string;
+  updated_at: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TASK TYPES
+// TASK GRAPH (src/core/graph.rs) — static DAG of planned intent
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type TaskState =
+export interface RetryPolicy {
+  max_retries: number;
+  escalate_on_failure: boolean;
+}
+
+export interface SuccessCriteria {
+  description: string;
+  checks: string[];
+}
+
+export interface GraphTask {
+  id: string;
+  title: string;
+  description: string | null;
+  criteria: SuccessCriteria;
+  retry_policy: RetryPolicy;
+  scope: Scope | null;
+}
+
+export type GraphState = 'draft' | 'validated' | 'locked';
+
+export interface TaskGraph {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  state: GraphState;
+  tasks: Record<string, GraphTask>;
+  dependencies: Record<string, string[]>;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TASK FLOW (src/core/flow.rs) — runtime execution instance
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type FlowState = 'created' | 'running' | 'paused' | 'completed' | 'aborted';
+
+export type TaskExecState =
   | 'pending'
+  | 'ready'
   | 'running'
   | 'verifying'
   | 'success'
@@ -40,272 +143,129 @@ export type TaskState =
   | 'failed'
   | 'escalated';
 
-export interface Task {
-  id: string;
-  projectId: string;
-  title: string;
-  description?: string;
-  state: TaskState;
-  scope?: Scope;
-  createdAt: string;
-  updatedAt: string;
-  attempts: Attempt[];
-  verificationResults?: VerificationResult[];
-  retryCount: number;
-  maxRetries: number;
-  assignedAgent?: Agent;
+export interface TaskExecution {
+  task_id: string;
+  state: TaskExecState;
+  attempt_count: number;
+  updated_at: string;
+  blocked_reason: string | null;
 }
-
-export interface Scope {
-  id: string;
-  filesystemPaths: FilesystemPermission[];
-  repositories: RepositoryPermission[];
-  executionPermissions: string[];
-  gitPermissions: GitPermission[];
-}
-
-export interface FilesystemPermission {
-  pattern: string;
-  permission: 'read' | 'write' | 'deny';
-}
-
-export interface RepositoryPermission {
-  repositoryId: string;
-  accessMode: 'ro' | 'rw';
-}
-
-export interface GitPermission {
-  action: 'commit' | 'branch' | 'push' | 'merge';
-  allowed: boolean;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AGENT TYPES
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type AgentRole = 'planner' | 'worker' | 'verifier' | 'merge' | 'freeflow';
-
-export interface Agent {
-  id: string;
-  role: AgentRole;
-  runtime: Runtime;
-  status: 'idle' | 'active' | 'terminated';
-}
-
-export interface Runtime {
-  id: string;
-  name: string;
-  type: 'claude-code' | 'codex-cli' | 'opencode' | 'gemini-cli';
-  status: 'healthy' | 'degraded' | 'offline';
-  version?: string;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ATTEMPT TYPES
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface Attempt {
-  id: string;
-  taskId: string;
-  agentId: string;
-  startedAt: string;
-  completedAt?: string;
-  exitStatus: 'success' | 'failed' | 'crashed' | 'running';
-  outputSummary?: string;
-  diff?: Diff;
-  checkpointCommit?: string;
-}
-
-export interface Diff {
-  id: string;
-  filesChanged: number;
-  additions: number;
-  deletions: number;
-  files: DiffFile[];
-}
-
-export interface DiffFile {
-  path: string;
-  status: 'added' | 'modified' | 'deleted' | 'renamed';
-  additions: number;
-  deletions: number;
-  hunks: DiffHunk[];
-}
-
-export interface DiffHunk {
-  oldStart: number;
-  oldLines: number;
-  newStart: number;
-  newLines: number;
-  content: string;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// VERIFICATION TYPES
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface VerificationResult {
-  id: string;
-  attemptId: string;
-  automatedChecks: AutomatedCheck[];
-  verifierDecision?: VerifierDecision;
-  humanOverride?: HumanOverride;
-  outcome: 'pass' | 'soft_fail' | 'hard_fail';
-  timestamp: string;
-}
-
-export interface AutomatedCheck {
-  name: string;
-  type: 'test' | 'lint' | 'typecheck' | 'build' | 'custom';
-  status: 'pass' | 'fail' | 'skip';
-  message?: string;
-  duration?: number;
-}
-
-export interface VerifierDecision {
-  decision: 'pass' | 'soft_fail' | 'hard_fail';
-  reasoning: string;
-  confidence: number;
-}
-
-export interface HumanOverride {
-  userId: string;
-  decision: 'pass' | 'fail';
-  reason: string;
-  timestamp: string;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TASKGRAPH TYPES
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface TaskGraph {
-  id: string;
-  projectId: string;
-  name: string;
-  description?: string;
-  tasks: TaskNode[];
-  edges: TaskEdge[];
-  createdAt: string;
-  status: 'draft' | 'validated' | 'immutable';
-}
-
-export interface TaskNode {
-  taskId: string;
-  position: { x: number; y: number };
-}
-
-export interface TaskEdge {
-  from: string;
-  to: string;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TASKFLOW TYPES
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type TaskFlowState =
-  | 'created'
-  | 'running'
-  | 'paused'
-  | 'completed'
-  | 'aborted';
 
 export interface TaskFlow {
   id: string;
-  graphId: string;
-  projectId: string;
-  name: string;
-  state: TaskFlowState;
-  tasks: TaskFlowTask[];
-  startedAt?: string;
-  completedAt?: string;
-  createdAt: string;
-  progress: {
-    total: number;
-    completed: number;
-    failed: number;
-    running: number;
-  };
-}
-
-export interface TaskFlowTask {
-  taskId: string;
-  state: TaskState;
-  attemptCount: number;
-  currentAttemptId?: string;
-  dependencies: string[];
-  dependents: string[];
+  graph_id: string;
+  project_id: string;
+  state: FlowState;
+  task_executions: Record<string, TaskExecution>;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  updated_at: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EVENT TYPES
+// MERGE STATE (src/core/state.rs)
 // ─────────────────────────────────────────────────────────────────────────────
+
+export type MergeStatus = 'prepared' | 'approved' | 'completed';
+
+export interface MergeState {
+  flow_id: string;
+  status: MergeStatus;
+  target_branch: string | null;
+  conflicts: string[];
+  commits: string[];
+  updated_at: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ATTEMPT STATE (src/core/state.rs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AttemptState {
+  id: string;
+  flow_id: string;
+  task_id: string;
+  attempt_number: number;
+  started_at: string;
+  baseline_id: string | null;
+  diff_id: string | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EVENTS (src/core/events.rs) — immutable, append-only event log
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CorrelationIds {
+  project_id: string | null;
+  graph_id: string | null;
+  flow_id: string | null;
+  task_id: string | null;
+  attempt_id: string | null;
+}
+
+export type EventType =
+  | 'ProjectCreated'
+  | 'ProjectUpdated'
+  | 'ProjectRuntimeConfigured'
+  | 'RepositoryAttached'
+  | 'RepositoryDetached'
+  | 'TaskCreated'
+  | 'TaskUpdated'
+  | 'TaskClosed'
+  | 'TaskGraphCreated'
+  | 'TaskAddedToGraph'
+  | 'DependencyAdded'
+  | 'ScopeAssigned'
+  | 'TaskFlowCreated'
+  | 'TaskFlowStarted'
+  | 'TaskFlowPaused'
+  | 'TaskFlowResumed'
+  | 'TaskFlowCompleted'
+  | 'TaskFlowAborted'
+  | 'TaskReady'
+  | 'TaskBlocked'
+  | 'TaskExecutionStateChanged'
+  | 'TaskRetryRequested'
+  | 'TaskAborted'
+  | 'HumanOverride'
+  | 'MergePrepared'
+  | 'MergeApproved'
+  | 'MergeCompleted'
+  | 'AttemptStarted'
+  | 'BaselineCaptured'
+  | 'DiffComputed'
+  | 'FileModified'
+  | 'CheckpointCommitCreated'
+  | 'RuntimeStarted'
+  | 'RuntimeOutputChunk'
+  | 'RuntimeExited'
+  | 'RuntimeTerminated'
+  | 'RuntimeFilesystemObserved';
 
 export type EventCategory =
   | 'project'
-  | 'taskgraph'
-  | 'taskflow'
   | 'task'
-  | 'attempt'
-  | 'agent'
-  | 'runtime'
-  | 'scope'
-  | 'filesystem'
+  | 'graph'
+  | 'flow'
+  | 'execution'
   | 'verification'
   | 'merge'
-  | 'human';
+  | 'runtime'
+  | 'filesystem';
 
 export interface HivemindEvent {
   id: string;
-  type: string;
+  type: EventType;
   category: EventCategory;
   timestamp: string;
-  correlations: {
-    projectId?: string;
-    taskGraphId?: string;
-    taskFlowId?: string;
-    taskId?: string;
-    attemptId?: string;
-  };
-  actor: {
-    type: 'system' | 'agent' | 'human';
-    id: string;
-    name?: string;
-  };
+  sequence: number | null;
+  correlation: CorrelationIds;
   payload: Record<string, unknown>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MERGE TYPES
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface MergePreparation {
-  id: string;
-  flowId: string;
-  targetBranch: string;
-  status: 'preparing' | 'ready' | 'conflict' | 'merged';
-  commits: MergeCommit[];
-  conflicts?: MergeConflict[];
-  preparedAt: string;
-  approvedAt?: string;
-  approvedBy?: string;
-}
-
-export interface MergeCommit {
-  sha: string;
-  message: string;
-  taskId: string;
-}
-
-export interface MergeConflict {
-  file: string;
-  type: 'content' | 'mode' | 'rename';
-  description: string;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// UI STATE TYPES
+// UI TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface Notification {
@@ -317,12 +277,10 @@ export interface Notification {
   read: boolean;
 }
 
-export interface CommandPaletteItem {
+export interface Runtime {
   id: string;
-  label: string;
-  description?: string;
-  icon?: string;
-  shortcut?: string;
-  action: () => void;
-  category?: string;
+  name: string;
+  type: string;
+  status: 'healthy' | 'degraded' | 'offline';
+  version?: string;
 }

@@ -1,154 +1,219 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
+  ListTodo,
   Plus,
-  Filter,
-  LayoutGrid,
-  List,
-  RotateCcw,
-  AlertTriangle,
   ChevronRight,
   Clock,
+  Shield,
+  FileText,
+  GitBranch,
+  Terminal,
 } from 'lucide-react';
 import { useHivemindStore } from '../stores/hivemindStore';
-import { Card } from '../components/Card';
-import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
-import { StatusIndicator } from '../components/StatusIndicator';
-import type { TaskState } from '../types';
+import { Button } from '../components/Button';
+import { PageHeader } from '../components/composites/PageHeader';
+import { FilterBar } from '../components/composites/FilterBar';
+import { DetailPanel } from '../components/composites/DetailPanel';
+import { KeyValueGrid } from '../components/composites/KeyValueGrid';
+import { EmptyState } from '../components/composites/EmptyState';
+import { ListItem } from '../components/composites/ListItem';
+import { Dot } from '../components/primitives/Dot';
+import type { Task, TaskState, Scope } from '../types';
 import styles from './Tasks.module.css';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TASKS PAGE
-// Task listing with Kanban-style columns
-// ═══════════════════════════════════════════════════════════════════════════
+type FilterState = TaskState | 'all';
 
-const columns: { id: TaskState | 'all'; label: string; color: string }[] = [
-  { id: 'pending', label: 'Pending', color: 'var(--state-pending)' },
-  { id: 'running', label: 'Running', color: 'var(--state-running)' },
-  { id: 'verifying', label: 'Verifying', color: 'var(--state-verifying)' },
-  { id: 'success', label: 'Success', color: 'var(--state-success)' },
-  { id: 'failed', label: 'Failed', color: 'var(--state-failed)' },
-];
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function ScopeDetails({ scope }: { scope: Scope }) {
+  return (
+    <div className={styles.scopeContainer}>
+      {/* Filesystem Rules */}
+      {scope.filesystem.rules.length > 0 && (
+        <div className={styles.scopeSection}>
+          <div className={styles.scopeSectionHeader}>
+            <FileText size={14} />
+            <span>Filesystem</span>
+          </div>
+          <div className={styles.scopeList}>
+            {scope.filesystem.rules.map((rule, i) => (
+              <div key={i} className={styles.scopeItem}>
+                <code className={styles.scopePattern}>{rule.pattern}</code>
+                <Badge
+                  variant={rule.permission === 'write' ? 'success' : rule.permission === 'read' ? 'info' : 'error'}
+                  size="sm"
+                >
+                  {rule.permission}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Repository Access */}
+      {scope.repositories.length > 0 && (
+        <div className={styles.scopeSection}>
+          <div className={styles.scopeSectionHeader}>
+            <GitBranch size={14} />
+            <span>Repositories</span>
+          </div>
+          <div className={styles.scopeList}>
+            {scope.repositories.map((repo, i) => (
+              <div key={i} className={styles.scopeItem}>
+                <code className={styles.scopePattern}>{repo.repo}</code>
+                <Badge
+                  variant={repo.mode === 'readwrite' ? 'success' : 'info'}
+                  size="sm"
+                >
+                  {repo.mode}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Git Permissions */}
+      {scope.git.permissions.length > 0 && (
+        <div className={styles.scopeSection}>
+          <div className={styles.scopeSectionHeader}>
+            <GitBranch size={14} />
+            <span>Git Permissions</span>
+          </div>
+          <div className={styles.scopeTags}>
+            {scope.git.permissions.map((perm) => (
+              <Badge key={perm} variant="amber" size="sm">
+                {perm}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Execution Permissions */}
+      {(scope.execution.allowed.length > 0 || scope.execution.denied.length > 0) && (
+        <div className={styles.scopeSection}>
+          <div className={styles.scopeSectionHeader}>
+            <Terminal size={14} />
+            <span>Execution</span>
+          </div>
+          <div className={styles.scopeList}>
+            {scope.execution.allowed.map((cmd, i) => (
+              <div key={`allow-${i}`} className={styles.scopeItem}>
+                <code className={styles.scopePattern}>{cmd}</code>
+                <Badge variant="success" size="sm">allowed</Badge>
+              </div>
+            ))}
+            {scope.execution.denied.map((cmd, i) => (
+              <div key={`deny-${i}`} className={styles.scopeItem}>
+                <code className={styles.scopePattern}>{cmd}</code>
+                <Badge variant="error" size="sm">denied</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Tasks() {
-  const { tasks, selectedProjectId } = useHivemindStore();
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
-  const [selectedTask, setSelectedTask] = useState<string | null>(null);
+  const { tasks, projects, selectedProjectId } = useHivemindStore();
+  const [filter, setFilter] = useState<FilterState>('all');
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
-  const projectTasks = tasks.filter((t) => t.projectId === selectedProjectId);
+  const projectTasks = useMemo(() => {
+    const filtered = selectedProjectId
+      ? tasks.filter((t) => t.project_id === selectedProjectId)
+      : tasks;
 
-  const getTasksByState = (state: TaskState) =>
-    projectTasks.filter((t) => t.state === state);
+    if (filter === 'all') return filtered;
+    return filtered.filter((t) => t.state === filter);
+  }, [tasks, selectedProjectId, filter]);
+
+  const selectedTask: Task | null = useMemo(
+    () => (selectedTaskId ? tasks.find((t) => t.id === selectedTaskId) ?? null : null),
+    [tasks, selectedTaskId],
+  );
+
+  const getProjectName = (projectId: string): string => {
+    const project = projects.find((p) => p.id === projectId);
+    return project?.name ?? projectId;
+  };
+
+  const openCount = tasks.filter(
+    (t) => (!selectedProjectId || t.project_id === selectedProjectId) && t.state === 'open',
+  ).length;
+  const closedCount = tasks.filter(
+    (t) => (!selectedProjectId || t.project_id === selectedProjectId) && t.state === 'closed',
+  ).length;
+
+  const filterChips = [
+    { id: 'all' as const, label: `All (${openCount + closedCount})`, active: filter === 'all' },
+    { id: 'open' as const, label: `Open (${openCount})`, icon: <Dot color="var(--green-500)" size={6} pulse />, active: filter === 'open' },
+    { id: 'closed' as const, label: `Closed (${closedCount})`, icon: <Dot color="var(--gray-400)" size={6} />, active: filter === 'closed' },
+  ];
+
+  const handleFilterToggle = (id: string) => {
+    setFilter(id as FilterState);
+  };
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.titleGroup}>
-          <h1>Tasks</h1>
-          <p>Manage and track task execution</p>
-        </div>
-        <div className={styles.actions}>
-          <div className={styles.viewToggle}>
-            <button
-              className={`${styles.viewBtn} ${viewMode === 'kanban' ? styles.active : ''}`}
-              onClick={() => setViewMode('kanban')}
-            >
-              <LayoutGrid size={16} />
-            </button>
-            <button
-              className={`${styles.viewBtn} ${viewMode === 'list' ? styles.active : ''}`}
-              onClick={() => setViewMode('list')}
-            >
-              <List size={16} />
-            </button>
-          </div>
-          <Button variant="secondary" icon={<Filter size={16} />}>
-            Filter
-          </Button>
-          <Button variant="primary" icon={<Plus size={16} />}>
-            New Task
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Tasks"
+        subtitle="Open/closed task items with scope contracts"
+        actions={
+          <>
+            <FilterBar
+              label=""
+              chips={filterChips}
+              onToggle={handleFilterToggle}
+            />
+            <Button variant="primary" icon={<Plus size={16} />}>New Task</Button>
+          </>
+        }
+      />
 
       <AnimatePresence mode="wait">
-        {viewMode === 'kanban' ? (
+        {projectTasks.length === 0 ? (
           <motion.div
-            key="kanban"
-            className={styles.kanbanBoard}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            key="empty"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
           >
-            {columns.map((column, colIndex) => {
-              const columnTasks = getTasksByState(column.id as TaskState);
-              return (
-                <motion.div
-                  key={column.id}
-                  className={styles.column}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: colIndex * 0.05 }}
-                >
-                  <div className={styles.columnHeader}>
-                    <div
-                      className={styles.columnIndicator}
-                      style={{ background: column.color }}
-                    />
-                    <span className={styles.columnTitle}>{column.label}</span>
-                    <Badge variant="default" size="sm">
-                      {columnTasks.length}
-                    </Badge>
-                  </div>
-                  <div className={styles.columnContent}>
-                    {columnTasks.map((task, taskIndex) => (
-                      <motion.div
-                        key={task.id}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: colIndex * 0.05 + taskIndex * 0.03 }}
-                        onClick={() => setSelectedTask(task.id)}
-                      >
-                        <Card
-                          variant="elevated"
-                          hoverable
-                          className={`${styles.taskCard} ${selectedTask === task.id ? styles.selected : ''}`}
-                        >
-                          <div className={styles.taskHeader}>
-                            <StatusIndicator status={task.state} size="sm" />
-                            {task.retryCount > 0 && (
-                              <div className={styles.retryBadge}>
-                                <RotateCcw size={10} />
-                                <span>{task.retryCount}</span>
-                              </div>
-                            )}
-                          </div>
-                          <h4 className={styles.taskTitle}>{task.title}</h4>
-                          {task.description && (
-                            <p className={styles.taskDesc}>{task.description}</p>
-                          )}
-                          <div className={styles.taskMeta}>
-                            <span className={styles.taskId}>{task.id}</span>
-                            {task.state === 'escalated' && (
-                              <AlertTriangle
-                                size={14}
-                                className={styles.escalatedIcon}
-                              />
-                            )}
-                          </div>
-                        </Card>
-                      </motion.div>
-                    ))}
-                    {columnTasks.length === 0 && (
-                      <div className={styles.emptyColumn}>
-                        <span>No tasks</span>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              );
-            })}
+            <EmptyState
+              icon={<ListTodo size={48} />}
+              title="No tasks found"
+              description={
+                filter !== 'all'
+                  ? `No ${filter} tasks in this project. Try changing the filter.`
+                  : 'Create your first task to get started.'
+              }
+              action={
+                <Button variant="primary" icon={<Plus size={16} />}>New Task</Button>
+              }
+            />
           </motion.div>
         ) : (
           <motion.div
@@ -158,120 +223,100 @@ export function Tasks() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div className={styles.listHeader}>
-              <span className={styles.listColStatus}>Status</span>
-              <span className={styles.listColTitle}>Task</span>
-              <span className={styles.listColRetries}>Retries</span>
-              <span className={styles.listColUpdated}>Updated</span>
-              <span className={styles.listColActions}></span>
-            </div>
             {projectTasks.map((task, index) => (
-              <motion.div
+              <ListItem
                 key={task.id}
-                className={styles.listRow}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.03 }}
-                onClick={() => setSelectedTask(task.id)}
-              >
-                <div className={styles.listColStatus}>
-                  <StatusIndicator status={task.state} showLabel />
-                </div>
-                <div className={styles.listColTitle}>
-                  <span className={styles.taskTitleList}>{task.title}</span>
-                  <span className={styles.taskIdList}>{task.id}</span>
-                </div>
-                <div className={styles.listColRetries}>
-                  <span
-                    className={`${styles.retryCount} ${task.retryCount > 0 ? styles.hasRetries : ''}`}
-                  >
-                    {task.retryCount}/{task.maxRetries}
-                  </span>
-                </div>
-                <div className={styles.listColUpdated}>
-                  <Clock size={12} />
-                  <span>{new Date(task.updatedAt).toLocaleDateString()}</span>
-                </div>
-                <div className={styles.listColActions}>
-                  <ChevronRight size={16} />
-                </div>
-              </motion.div>
+                delay={index * 0.03}
+                selected={selectedTaskId === task.id}
+                onClick={() => setSelectedTaskId(task.id)}
+                icon={
+                  <Dot
+                    color={task.state === 'open' ? 'var(--green-500)' : 'var(--gray-400)'}
+                    size={10}
+                    pulse={task.state === 'open'}
+                  />
+                }
+                title={
+                  <div className={styles.taskTitleRow}>
+                    <span className={styles.taskTitle}>{task.title}</span>
+                    <div className={styles.taskTags}>
+                      {task.scope && (
+                        <Badge variant="amber" size="sm" icon={<Shield size={10} />}>
+                          scoped
+                        </Badge>
+                      )}
+                      <Badge variant="default" size="sm">
+                        {getProjectName(task.project_id)}
+                      </Badge>
+                    </div>
+                  </div>
+                }
+                subtitle={
+                  <div className={styles.taskSubtitle}>
+                    {task.description && (
+                      <span className={styles.taskDesc}>{task.description}</span>
+                    )}
+                    <span className={styles.taskMeta}>
+                      <Clock size={11} />
+                      {formatDate(task.updated_at)}
+                    </span>
+                  </div>
+                }
+                trailing={<ChevronRight size={16} className={styles.chevron} />}
+              />
             ))}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Task Detail Panel */}
-      <AnimatePresence>
+      <DetailPanel
+        open={!!selectedTask}
+        onClose={() => setSelectedTaskId(null)}
+        header={
+          selectedTask ? (
+            <div className={styles.detailHeader}>
+              <Dot
+                color={selectedTask.state === 'open' ? 'var(--green-500)' : 'var(--gray-400)'}
+                size={12}
+                pulse={selectedTask.state === 'open'}
+              />
+              <Badge variant={selectedTask.state === 'open' ? 'success' : 'default'}>
+                {selectedTask.state}
+              </Badge>
+            </div>
+          ) : undefined
+        }
+      >
         {selectedTask && (
-          <motion.div
-            className={styles.detailPanel}
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          >
-            {(() => {
-              const task = tasks.find((t) => t.id === selectedTask);
-              if (!task) return null;
-              return (
-                <>
-                  <div className={styles.detailHeader}>
-                    <StatusIndicator status={task.state} showLabel size="lg" />
-                    <button
-                      className={styles.closeBtn}
-                      onClick={() => setSelectedTask(null)}
-                    >
-                      &times;
-                    </button>
-                  </div>
-                  <div className={styles.detailContent}>
-                    <h2 className={styles.detailTitle}>{task.title}</h2>
-                    <p className={styles.detailDesc}>{task.description}</p>
+          <>
+            <h2 className={styles.detailTitle}>{selectedTask.title}</h2>
+            {selectedTask.description && (
+              <p className={styles.detailDesc}>{selectedTask.description}</p>
+            )}
 
-                    <div className={styles.detailSection}>
-                      <h4>Execution Info</h4>
-                      <div className={styles.detailGrid}>
-                        <div className={styles.detailItem}>
-                          <span className={styles.detailLabel}>Task ID</span>
-                          <span className={styles.detailValue}>{task.id}</span>
-                        </div>
-                        <div className={styles.detailItem}>
-                          <span className={styles.detailLabel}>Retries</span>
-                          <span className={styles.detailValue}>
-                            {task.retryCount} / {task.maxRetries}
-                          </span>
-                        </div>
-                        <div className={styles.detailItem}>
-                          <span className={styles.detailLabel}>Created</span>
-                          <span className={styles.detailValue}>
-                            {new Date(task.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-                        <div className={styles.detailItem}>
-                          <span className={styles.detailLabel}>Updated</span>
-                          <span className={styles.detailValue}>
-                            {new Date(task.updatedAt).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+            <div className={styles.detailSection}>
+              <h4>Task Info</h4>
+              <KeyValueGrid
+                items={[
+                  { label: 'Task ID', value: selectedTask.id },
+                  { label: 'State', value: selectedTask.state },
+                  { label: 'Project', value: getProjectName(selectedTask.project_id) },
+                  { label: 'Project ID', value: selectedTask.project_id },
+                  { label: 'Created', value: formatDateTime(selectedTask.created_at) },
+                  { label: 'Updated', value: formatDateTime(selectedTask.updated_at) },
+                ]}
+              />
+            </div>
 
-                    <div className={styles.detailActions}>
-                      <Button variant="primary" icon={<RotateCcw size={16} />}>
-                        Retry Task
-                      </Button>
-                      <Button variant="danger" icon={<AlertTriangle size={16} />}>
-                        Abort
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
-          </motion.div>
+            {selectedTask.scope && (
+              <div className={styles.detailSection}>
+                <h4>Scope Contract</h4>
+                <ScopeDetails scope={selectedTask.scope} />
+              </div>
+            )}
+          </>
         )}
-      </AnimatePresence>
+      </DetailPanel>
     </div>
   );
 }
