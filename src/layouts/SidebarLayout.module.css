@@ -15,7 +15,78 @@
   overflow-y: auto;
 }
 
+/* ─── Mobile top bar (hidden on desktop) ─── */
+
+.mobileBar {
+  display: none;
+}
+
+.backdrop {
+  display: none;
+}
+
 @media (max-width: 768px) {
+  .mobileBar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    height: 52px;
+    padding: 0 var(--space-4);
+    background: var(--surface-0);
+    border-bottom: 1px solid var(--border-subtle);
+    position: sticky;
+    top: 0;
+    z-index: calc(var(--z-sticky) + 1);
+  }
+
+  .hamburger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .hamburger:active {
+    background: var(--surface-2);
+  }
+
+  .mobileBrand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+  }
+
+  .mobileBrand svg {
+    color: var(--accent-500);
+  }
+
+  .mobileSpacer {
+    flex: 1;
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: var(--z-sticky);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .main {
+    margin-left: 0 !important;
+    min-height: auto;
+  }
+
   .content {
     padding: var(--space-4);
   }

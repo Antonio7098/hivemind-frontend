@@ -176,3 +176,33 @@
   font-family: var(--font-mono);
   color: var(--text-muted);
 }
+
+/* ─── Mobile ─── */
+
+@media (max-width: 768px) {
+  .trigger {
+    bottom: var(--space-4);
+    right: var(--space-4);
+  }
+
+  [data-layout="floating"] .trigger {
+    bottom: 72px;
+  }
+
+  .panel {
+    left: var(--space-3);
+    right: var(--space-3);
+    bottom: calc(var(--space-4) + 52px);
+    width: auto;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  [data-layout="floating"] .panel {
+    bottom: calc(72px + 52px);
+  }
+
+  .option {
+    min-height: 44px;
+  }
+}

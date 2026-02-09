@@ -145,9 +145,7 @@ export function CommandPalette() {
   }, [commandPaletteOpen, toggleCommandPalette, flatCommands, selectedIndex, executeCommand]);
 
   // Reset selection when query changes
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
+  
 
   return (
     <AnimatePresence>
@@ -174,7 +172,10 @@ export function CommandPalette() {
                 className={styles.searchInput}
                 placeholder="Type a command or search..."
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setSelectedIndex(0);
+                }}
                 autoFocus
               />
               <button className={styles.closeBtn} onClick={toggleCommandPalette}>

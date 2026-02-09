@@ -23,3 +23,11 @@
   color: var(--text-primary);
   word-break: break-all;
 }
+
+/* ─── Mobile ─── */
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+}

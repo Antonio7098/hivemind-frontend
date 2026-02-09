@@ -45,6 +45,7 @@ export function Sidebar() {
     notifications,
     selectedProjectId,
     projects,
+    mobileMenuOpen,
   } = useHivemindStore();
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -52,7 +53,7 @@ export function Sidebar() {
 
   return (
     <motion.aside
-      className={styles.sidebar}
+      className={`${styles.sidebar} ${mobileMenuOpen ? styles.open : ''}`}
       animate={{ width: sidebarCollapsed ? 64 : 240 }}
       transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
     >

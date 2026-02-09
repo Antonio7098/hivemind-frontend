@@ -10,6 +10,24 @@ import type {
   Notification,
 } from '../types';
 
+const API_BASE_URL =
+  ((import.meta.env as unknown as Record<string, string | undefined>)[
+    'VITE_HIVEMIND_API_BASE_URL'
+  ] ?? 'http://127.0.0.1:8787');
+
+type ApiResponse<T> =
+  | { success: true; data: T }
+  | { success: false; error: { category: string; code: string; message: string; hint?: string } };
+
+type UiState = {
+  projects: Project[];
+  tasks: Task[];
+  graphs: TaskGraph[];
+  flows: TaskFlow[];
+  merge_states: MergeState[];
+  events: HivemindEvent[];
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MOCK DATA — Matches exact Rust backend structs
 // ═══════════════════════════════════════════════════════════════════════════
@@ -359,21 +377,29 @@ interface HivemindStore {
   runtimes: Runtime[];
   notifications: Notification[];
 
+  apiConnected: boolean;
+  apiError: string | null;
+
   // ─── UI State ───
   selectedProjectId: string | null;
   sidebarCollapsed: boolean;
   commandPaletteOpen: boolean;
   eventStreamPaused: boolean;
+  mobileMenuOpen: boolean;
 
   // ─── Actions ───
   setSelectedProject: (id: string | null) => void;
   toggleSidebar: () => void;
   toggleCommandPalette: () => void;
   toggleEventStream: () => void;
+  toggleMobileMenu: () => void;
+  closeMobileMenu: () => void;
   addEvent: (event: HivemindEvent) => void;
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
+
+  refreshFromApi: (eventsLimit?: number) => Promise<void>;
 
   // ─── Derived ───
   getProject: (id: string) => Project | undefined;
@@ -420,12 +446,18 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
   sidebarCollapsed: false,
   commandPaletteOpen: false,
   eventStreamPaused: false,
+  mobileMenuOpen: false,
+
+  apiConnected: false,
+  apiError: null,
 
   // ─── Actions ───
   setSelectedProject: (id) => set({ selectedProjectId: id }),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
   toggleEventStream: () => set((s) => ({ eventStreamPaused: !s.eventStreamPaused })),
+  toggleMobileMenu: () => set((s) => ({ mobileMenuOpen: !s.mobileMenuOpen })),
+  closeMobileMenu: () => set({ mobileMenuOpen: false }),
 
   addEvent: (event) =>
     set((s) => ({ events: [event, ...s.events] })),
@@ -444,6 +476,38 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
     })),
 
   clearNotifications: () => set({ notifications: [] }),
+
+  refreshFromApi: async (eventsLimit = 200) => {
+    try {
+      const paused = get().eventStreamPaused;
+      const effectiveLimit = paused ? 0 : eventsLimit;
+      const res = await fetch(`${API_BASE_URL}/api/state?events_limit=${effectiveLimit}`);
+      const json = (await res.json()) as ApiResponse<UiState>;
+
+      if (!json.success) {
+        set({ apiConnected: false, apiError: json.error.message });
+        return;
+      }
+
+      set((s) => ({
+        projects: json.data.projects,
+        tasks: json.data.tasks,
+        graphs: json.data.graphs,
+        flows: json.data.flows,
+        mergeStates: json.data.merge_states,
+        events: paused ? s.events : json.data.events,
+        apiConnected: true,
+        apiError: null,
+      }));
+
+      const current = get().selectedProjectId;
+      if (current && !json.data.projects.some((p) => p.id === current)) {
+        set({ selectedProjectId: json.data.projects[0]?.id ?? null });
+      }
+    } catch (e) {
+      set({ apiConnected: false, apiError: e instanceof Error ? e.message : String(e) });
+    }
+  },
 
   // ─── Derived ───
   getProject: (id) => get().projects.find((p) => p.id === id),

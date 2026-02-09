@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { useTheme } from './contexts/useTheme';
 import { SidebarLayout } from './layouts/SidebarLayout';
 import { TopNavLayout } from './layouts/TopNavLayout';
 import { FloatingLayout } from './layouts/FloatingLayout';
@@ -14,6 +16,7 @@ import { Events } from './pages/Events';
 import { Settings } from './pages/Settings';
 import { Notifications } from './pages/Notifications';
 import { ThemeMatrix } from './pages/ThemeMatrix';
+import { useHivemindStore } from './stores/hivemindStore';
 
 function LayoutRouter() {
   const { layout } = useTheme();
@@ -48,6 +51,27 @@ function LayoutRouter() {
 }
 
 function App() {
+  const refreshFromApi = useHivemindStore((s) => s.refreshFromApi);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const tick = async () => {
+      if (cancelled) return;
+      await refreshFromApi(200);
+    };
+
+    void tick();
+    const id = window.setInterval(() => {
+      void tick();
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [refreshFromApi]);
+
   return (
     <ThemeProvider>
       <BrowserRouter>

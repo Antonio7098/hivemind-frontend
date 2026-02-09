@@ -58,3 +58,30 @@
   overflow-y: auto;
   padding: var(--space-5);
 }
+
+/* ─── Mobile ─── */
+
+@media (max-width: 768px) {
+  .right {
+    left: 0;
+    width: 100% !important;
+    border-left: none;
+  }
+
+  .bottom {
+    max-height: 80vh;
+  }
+
+  .header {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .body {
+    padding: var(--space-4);
+  }
+
+  .closeBtn {
+    width: 40px;
+    height: 40px;
+  }
+}

@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { Check, Monitor, Layout, Layers } from 'lucide-react';
-import { useTheme, type LayoutType, type StyleType } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
+import type { LayoutType, StyleType } from '../contexts/themeTypes';
 import { PageHeader } from '../components/composites/PageHeader';
 import styles from './ThemeMatrix.module.css';
 

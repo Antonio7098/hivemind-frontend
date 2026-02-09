@@ -180,3 +180,34 @@
   border-radius: 3px;
   margin-right: var(--space-1);
 }
+
+/* ─── Mobile ─── */
+
+@media (max-width: 768px) {
+  .container {
+    top: var(--space-3);
+    left: var(--space-3);
+    right: var(--space-3);
+    transform: none;
+    max-width: none;
+    width: auto;
+    border-radius: var(--radius-lg);
+  }
+
+  .results {
+    max-height: 50vh;
+  }
+
+  .item {
+    padding: var(--space-3) var(--space-3);
+    min-height: 44px;
+  }
+
+  .itemShortcut {
+    display: none;
+  }
+
+  .footer {
+    display: none;
+  }
+}

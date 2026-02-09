@@ -90,3 +90,19 @@
   flex-direction: column;
   gap: var(--space-1);
 }
+
+/* ─── Mobile ─── */
+
+@media (max-width: 768px) {
+  .projectBadge {
+    align-items: flex-start;
+  }
+
+  .flowProgress {
+    flex-wrap: wrap;
+  }
+
+  .progressBarInline {
+    width: 60px;
+  }
+}

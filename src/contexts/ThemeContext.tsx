@@ -1,16 +1,6 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-
-export type LayoutType = 'sidebar' | 'topnav' | 'floating';
-export type StyleType = 'industrial' | 'ivory' | 'cyber';
-
-interface ThemeContextValue {
-  layout: LayoutType;
-  style: StyleType;
-  setLayout: (layout: LayoutType) => void;
-  setStyle: (style: StyleType) => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+import { useState, useEffect, type ReactNode } from 'react';
+import type { LayoutType, StyleType } from './themeTypes';
+import { ThemeContext } from './themeContext';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [layout, setLayout] = useState<LayoutType>(
@@ -35,10 +25,4 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       {children}
     </ThemeContext.Provider>
   );
-}
-
-export function useTheme() {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
-  return ctx;
 }

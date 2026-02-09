@@ -113,3 +113,17 @@
     transform: rotate(360deg);
   }
 }
+
+/* ─── Mobile ─── */
+
+@media (max-width: 768px) {
+  .sm {
+    height: 34px;
+    min-width: 34px;
+  }
+
+  .md {
+    height: 40px;
+    min-width: 40px;
+  }
+}

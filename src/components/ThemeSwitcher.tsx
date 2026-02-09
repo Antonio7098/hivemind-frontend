@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Palette, X, Monitor, Layers, Layout } from 'lucide-react';
-import { useTheme, type LayoutType, type StyleType } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
+import type { LayoutType, StyleType } from '../contexts/themeTypes';
 import styles from './ThemeSwitcher.module.css';
 
 const layoutOptions: { id: LayoutType; label: string; icon: typeof Monitor; desc: string }[] = [

@@ -16,12 +16,15 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
+  min-width: 0;
+  flex: 1;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 .logo {
@@ -42,6 +45,14 @@
   display: flex;
   align-items: center;
   gap: 2px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  min-width: 0;
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
 }
 
 .navItem {
@@ -56,6 +67,8 @@
   font-size: 0.8125rem;
   font-weight: 500;
   transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .navItem:hover {
@@ -81,6 +94,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 .searchBtn {
@@ -149,4 +163,67 @@
   color: white;
   border-radius: 7px;
   padding: 0 3px;
+}
+
+/* ─── Mobile ─── */
+
+@media (max-width: 768px) {
+  .topNav {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 0;
+    gap: 0;
+  }
+
+  .left {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    gap: var(--space-4);
+  }
+
+  .nav {
+    width: 100%;
+    padding: 0 var(--space-4) var(--space-2);
+    gap: 0;
+    order: 3;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: var(--space-2);
+  }
+
+  .navItem span {
+    display: none;
+  }
+
+  .navItem {
+    padding: var(--space-2);
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+  }
+
+  .activeBar {
+    bottom: -6px;
+  }
+
+  .right {
+    position: absolute;
+    right: var(--space-4);
+    top: var(--space-3);
+  }
+
+  .searchLabel,
+  .kbd {
+    display: none;
+  }
+
+  .searchBtn {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .iconBtn {
+    width: 40px;
+    height: 40px;
+  }
 }

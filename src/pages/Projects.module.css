@@ -257,3 +257,33 @@
   font-size: 0.8125rem;
   color: var(--text-tertiary);
 }
+
+/* ─── Mobile ─── */
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+  }
+
+  .projectGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .cardContent {
+    padding: var(--space-4);
+  }
+
+  .newProjectCard {
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .projectStats {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+}

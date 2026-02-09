@@ -254,3 +254,32 @@
   border-radius: 8px;
   padding: 0 4px;
 }
+
+/* ─── Mobile ─── */
+
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    width: 280px !important;
+    z-index: calc(var(--z-sticky) + 2);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .collapseBtn {
+    display: none;
+  }
+
+  .navItem {
+    padding: var(--space-3) var(--space-3);
+    min-height: 44px;
+  }
+
+  .footerBtn {
+    width: 44px;
+    height: 44px;
+  }
+}
