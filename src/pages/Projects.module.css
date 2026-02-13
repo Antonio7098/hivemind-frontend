@@ -27,6 +27,63 @@
   gap: var(--space-4);
 }
 
+.opsPanel {
+  margin-bottom: var(--space-4);
+}
+
+.opsHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.opsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+.opsSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-0);
+}
+
+.opInput,
+.opTextarea {
+  width: 100%;
+  border: 1px solid var(--border-default);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+}
+
+.opInput:focus,
+.opTextarea:focus {
+  outline: none;
+  border-color: var(--accent-500);
+}
+
+.opInput:disabled,
+.opTextarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.opTextarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
 /* ─── Project Card ─── */
 
 .projectCard {
@@ -278,6 +335,10 @@
 
   .newProjectCard {
     min-height: 200px;
+  }
+
+  .opsGrid {
+    grid-template-columns: 1fr;
   }
 }
 

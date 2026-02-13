@@ -38,7 +38,9 @@ const statusConfig: Record<string, { color: string; label: string; animate: bool
   // Flow states
   created: { color: 'var(--state-pending)', label: 'Created', animate: false },
   paused: { color: 'var(--amber-500)', label: 'Paused', animate: false },
+  frozen_for_merge: { color: 'var(--status-warning)', label: 'Frozen', animate: false },
   completed: { color: 'var(--state-success)', label: 'Completed', animate: false },
+  merged: { color: 'var(--state-success)', label: 'Merged', animate: false },
   aborted: { color: 'var(--state-failed)', label: 'Aborted', animate: false },
   // Graph states
   draft: { color: 'var(--text-tertiary)', label: 'Draft', animate: false },

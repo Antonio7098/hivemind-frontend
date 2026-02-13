@@ -52,6 +52,7 @@ export type ScopeCompatibility = 'compatible' | 'soft_conflict' | 'hard_conflict
 export interface ProjectRuntimeConfig {
   adapter_name: string;
   binary_path: string;
+  model?: string | null;
   args: string[];
   env: Record<string, string>;
   timeout_ms: number;
@@ -110,6 +111,7 @@ export interface GraphTask {
   description: string | null;
   criteria: SuccessCriteria;
   retry_policy: RetryPolicy;
+  checkpoints?: string[];
   scope: Scope | null;
 }
 
@@ -131,7 +133,16 @@ export interface TaskGraph {
 // TASK FLOW (src/core/flow.rs) — runtime execution instance
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type FlowState = 'created' | 'running' | 'paused' | 'completed' | 'aborted';
+export type FlowState =
+  | 'created'
+  | 'running'
+  | 'paused'
+  | 'frozen_for_merge'
+  | 'completed'
+  | 'merged'
+  | 'aborted';
+
+export type RetryMode = 'clean' | 'continue';
 
 export type TaskExecState =
   | 'pending'
@@ -147,6 +158,9 @@ export interface TaskExecution {
   task_id: string;
   state: TaskExecState;
   attempt_count: number;
+  retry_mode?: RetryMode;
+  frozen_commit_sha?: string | null;
+  integrated_commit_sha?: string | null;
   updated_at: string;
   blocked_reason: string | null;
 }
@@ -190,6 +204,30 @@ export interface AttemptState {
   started_at: string;
   baseline_id: string | null;
   diff_id: string | null;
+  check_results: CheckResult[];
+  checkpoints: AttemptCheckpoint[];
+  all_checkpoints_completed: boolean;
+}
+
+export type AttemptCheckpointState = 'declared' | 'active' | 'completed';
+
+export interface AttemptCheckpoint {
+  checkpoint_id: string;
+  order: number;
+  total: number;
+  state: AttemptCheckpointState;
+  commit_hash?: string | null;
+  completed_at?: string | null;
+  summary?: string | null;
+}
+
+export interface CheckResult {
+  name: string;
+  passed: boolean;
+  exit_code: number;
+  output: string;
+  duration_ms: number;
+  required: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -244,12 +282,14 @@ export type EventType =
   | 'RuntimeFilesystemObserved';
 
 export type EventCategory =
+  | 'error'
   | 'project'
   | 'task'
   | 'graph'
   | 'flow'
   | 'execution'
   | 'verification'
+  | 'scope'
   | 'merge'
   | 'runtime'
   | 'filesystem';
@@ -283,4 +323,49 @@ export interface Runtime {
   type: string;
   status: 'healthy' | 'degraded' | 'offline';
   version?: string;
+}
+
+export interface WorktreeStatus {
+  flow_id: string;
+  task_id: string;
+  path: string;
+  is_worktree: boolean;
+  head_commit: string | null;
+  branch: string | null;
+}
+
+export interface CheckpointCompletionResult {
+  flow_id: string;
+  task_id: string;
+  attempt_id: string;
+  checkpoint_id: string;
+  order: number;
+  total: number;
+  next_checkpoint_id: string | null;
+  all_completed: boolean;
+  commit_hash: string;
+}
+
+export interface VerifyResultsView {
+  attempt_id: string;
+  task_id: string;
+  flow_id: string;
+  attempt_number: number;
+  check_results: Record<string, unknown>[];
+}
+
+export interface AttemptInspectView {
+  attempt_id: string;
+  task_id: string;
+  flow_id: string;
+  attempt_number: number;
+  started_at: string;
+  baseline_id: string | null;
+  diff_id: string | null;
+  diff: string | null;
+}
+
+export interface ApiCatalog {
+  read_endpoints: string[];
+  write_endpoints: string[];
 }

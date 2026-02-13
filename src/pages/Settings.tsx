@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Monitor, Bell, Shield, Palette } from 'lucide-react';
 import { Button } from '../components/Button';
 import { PageHeader } from '../components/composites/PageHeader';
@@ -6,15 +6,43 @@ import { SectionCard } from '../components/composites/SectionCard';
 import { SettingRow } from '../components/composites/SettingRow';
 import { Toggle } from '../components/composites/Toggle';
 import { Stack } from '../components/primitives/Stack';
+import { useHivemindStore } from '../stores/hivemindStore';
 import styles from './Settings.module.css';
 
 export function Settings() {
+  const { fetchVersion, fetchApiCatalog, refreshFromApi, addNotification } = useHivemindStore();
   const [taskFailures, setTaskFailures] = useState(true);
   const [flowCompletion, setFlowCompletion] = useState(true);
   const [scopeViolations, setScopeViolations] = useState(true);
   const [defaultIsolation, setDefaultIsolation] = useState(true);
   const [strictMode, setStrictMode] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
+  const [serverVersion, setServerVersion] = useState('loading...');
+  const [catalogRead, setCatalogRead] = useState<string[]>([]);
+  const [catalogWrite, setCatalogWrite] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const syncApiDiagnostics = async () => {
+    setBusy(true);
+    try {
+      const [version, catalog] = await Promise.all([fetchVersion(), fetchApiCatalog()]);
+      setServerVersion(version);
+      setCatalogRead(catalog.read_endpoints);
+      setCatalogWrite(catalog.write_endpoints);
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'API diagnostics failed',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    void syncApiDiagnostics();
+  }, []);
 
   return (
     <div className={styles.page}>
@@ -25,6 +53,16 @@ export function Settings() {
 
       <Stack gap={4}>
         <SectionCard icon={<Monitor size={20} />} title="Runtime Configuration" delay={0.1}>
+          <SettingRow
+            label="Server Version"
+            description="Connected hivemind backend version"
+            control={<span className={styles.value}>{serverVersion}</span>}
+          />
+          <SettingRow
+            label="API Endpoints"
+            description="Read and write routes discovered via /api/catalog"
+            control={<span className={styles.value}>{catalogRead.length + catalogWrite.length}</span>}
+          />
           <SettingRow
             label="Default Runtime"
             description="Select the default agent runtime"
@@ -43,6 +81,33 @@ export function Settings() {
               <input type="number" className={styles.input} defaultValue={3} min={1} max={10} />
             }
           />
+          <div className={styles.apiSplit}>
+            <div className={styles.apiColumn}>
+              <span className={styles.apiHeading}>Read ({catalogRead.length})</span>
+              <div className={styles.apiList}>
+                {catalogRead.map((endpoint) => (
+                  <code key={endpoint} className={styles.endpoint}>{endpoint}</code>
+                ))}
+              </div>
+            </div>
+            <div className={styles.apiColumn}>
+              <span className={styles.apiHeading}>Write ({catalogWrite.length})</span>
+              <div className={styles.apiList}>
+                {catalogWrite.map((endpoint) => (
+                  <code key={endpoint} className={styles.endpoint}>{endpoint}</code>
+                ))}
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            loading={busy}
+            onClick={() => {
+              void syncApiDiagnostics();
+            }}
+          >
+            Reload API diagnostics
+          </Button>
         </SectionCard>
 
         <SectionCard icon={<Bell size={20} />} title="Notifications" delay={0.2}>
@@ -98,7 +163,16 @@ export function Settings() {
 
       <div className={styles.footer}>
         <Button variant="secondary">Reset to Defaults</Button>
-        <Button variant="primary">Save Changes</Button>
+        <Button
+          variant="primary"
+          loading={busy}
+          onClick={() => {
+            void refreshFromApi();
+            void syncApiDiagnostics();
+          }}
+        >
+          Sync with backend
+        </Button>
       </div>
     </div>
   );

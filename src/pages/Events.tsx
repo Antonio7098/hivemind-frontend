@@ -6,6 +6,7 @@ import {
   Download,
   Zap,
   Shield,
+  AlertTriangle,
   FileText,
   Terminal,
   FolderKanban,
@@ -29,12 +30,14 @@ import styles from './Events.module.css';
 // ═══════════════════════════════════════════════════════════════════════════
 
 const categoryConfig: Record<EventCategory, { icon: typeof Zap; color: string }> = {
+  error:        { icon: AlertTriangle, color: 'var(--status-error)' },
   project:      { icon: FolderKanban, color: 'var(--text-tertiary)' },
   task:         { icon: ListTodo,     color: 'var(--status-info)' },
   graph:        { icon: Network,      color: 'var(--accent-400)' },
   flow:         { icon: Play,         color: 'var(--state-running)' },
   execution:    { icon: Zap,          color: 'var(--accent-500)' },
   verification: { icon: Shield,       color: 'var(--state-verifying)' },
+  scope:        { icon: Shield,       color: 'var(--status-warning)' },
   merge:        { icon: GitMerge,     color: 'var(--state-success)' },
   runtime:      { icon: Terminal,     color: 'var(--text-secondary)' },
   filesystem:   { icon: FileText,     color: 'var(--text-tertiary)' },
@@ -69,9 +72,12 @@ const correlationLabels: Record<keyof CorrelationIds, string> = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function Events() {
-  const { events, eventStreamPaused, toggleEventStream } = useHivemindStore();
+  const { events, eventStreamPaused, toggleEventStream, inspectEvent } = useHivemindStore();
   const [selectedCategories, setSelectedCategories] = useState<Set<EventCategory>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<HivemindEvent | null>(null);
+  const [inspectedEventPayload, setInspectedEventPayload] = useState<Record<string, unknown> | null>(null);
+  const [inspectBusy, setInspectBusy] = useState(false);
+  const [inspectError, setInspectError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   // ─── Filtering ─────────────────────────────────────────────────────────
@@ -91,6 +97,11 @@ export function Events() {
   useEffect(() => {
     if (!eventStreamPaused && listRef.current) listRef.current.scrollTop = 0;
   }, [events, eventStreamPaused]);
+
+  useEffect(() => {
+    setInspectedEventPayload(null);
+    setInspectError(null);
+  }, [selectedEvent?.id]);
 
   // ─── Filter Chips ──────────────────────────────────────────────────────
   const filterChips = (Object.keys(categoryConfig) as EventCategory[]).map((cat) => {
@@ -201,9 +212,30 @@ export function Events() {
               <Card variant="elevated" padding="none">
                 <div className={styles.detailHeader}>
                   <h3>{selectedEvent.type}</h3>
-                  <button className={styles.closeBtn} onClick={() => setSelectedEvent(null)}>
-                    &times;
-                  </button>
+                  <div className={styles.detailActions}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      loading={inspectBusy}
+                      onClick={async () => {
+                        setInspectBusy(true);
+                        setInspectError(null);
+                        try {
+                          const payload = await inspectEvent({ event_id: selectedEvent.id });
+                          setInspectedEventPayload(payload);
+                        } catch (error) {
+                          setInspectError(error instanceof Error ? error.message : String(error));
+                        } finally {
+                          setInspectBusy(false);
+                        }
+                      }}
+                    >
+                      Inspect API
+                    </Button>
+                    <button className={styles.closeBtn} onClick={() => setSelectedEvent(null)}>
+                      &times;
+                    </button>
+                  </div>
                 </div>
                 <div className={styles.detailContent}>
                   {/* Event Info */}
@@ -248,6 +280,22 @@ export function Events() {
                       {JSON.stringify(selectedEvent.payload, null, 2)}
                     </pre>
                   </div>
+
+                  {inspectError && (
+                    <div className={styles.detailSection}>
+                      <h4>Inspect Error</h4>
+                      <pre className={styles.payload}>{inspectError}</pre>
+                    </div>
+                  )}
+
+                  {inspectedEventPayload && (
+                    <div className={styles.detailSection}>
+                      <h4>Inspected Event</h4>
+                      <pre className={styles.payload}>
+                        {JSON.stringify(inspectedEventPayload, null, 2)}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               </Card>
             </motion.div>

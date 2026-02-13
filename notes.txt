@@ -1,0 +1,257 @@
+## 1. What you’re doing exceptionally well
+
+Let’s start with the positives, because they matter.
+
+### ✅ Clear philosophical spine
+
+Your principles are coherent, non-generic, and consistent:
+
+* Observability
+* Determinism
+* Human authority
+* Local-first
+* Replaceable intelligence
+
+This already puts you *above* 90% of AI tooling sites, which are buzzword soup.
+
+### ✅ Strong negative positioning
+
+Lines like:
+
+> No magic.
+> No black boxes.
+> No surprise merges.
+
+and
+
+> Hivemind is not
+> × a chatbot
+> × an IDE replacement
+> × a model host
+
+are excellent. Keep them.
+
+### ✅ You’re speaking to *experienced* engineers
+
+This line in particular is very good:
+
+> They work great… until they don’t.
+
+That resonates with people who’ve been burned.
+
+---
+
+## 2. The main problem: the “why now?” isn’t sharp enough *early*
+
+Right now, the page **ramps up slowly** into its strongest differentiation.
+
+A first-time visitor skimming the top still might think:
+
+> “Okay… another serious AI dev tool. Maybe a workflow manager?”
+
+You *need* to hit them harder, sooner, with:
+
+> **“This is not for vibe coding.”**
+
+Not as an insult — as a *sorting mechanism*.
+
+---
+
+## 3. How to emphasise “NOT vibe coding” (without saying it awkwardly)
+
+You don’t need to use the phrase “vibe coding” everywhere — but you *should* describe it clearly and reject it explicitly.
+
+### Add a short “Who This Is For / Not For” block EARLY
+
+Right after the hero section, add something like:
+
+---
+
+### Who Hivemind Is For (and Who It Isn’t)
+
+**Hivemind is for:**
+
+* Engineers running non-trivial changes across real codebases
+* Long-running or parallel agent workflows
+* Situations where failure must be diagnosable and reversible
+* Anyone who needs to *trust* automation, not babysit it
+
+**Hivemind is not for:**
+
+* One-shot prompt → code workflows
+* Exploratory “vibe coding”
+* Auto-merging AI output without review
+* Throwaway demos where correctness doesn’t matter
+
+If someone reads this and thinks “that sounds heavy” — **good**.
+That’s exactly the filter you want.
+
+---
+
+## 4. Tighten the hero message (small change, big impact)
+
+Current hero:
+
+> Agentic development you can actually trust.
+
+Good — but abstract.
+
+### Slightly sharper version:
+
+> **Agentic development you can actually trust.**
+> **When correctness matters more than speed.**
+
+or
+
+> **Agentic development you can actually trust.**
+> **For real codebases, real workflows, and real consequences.**
+
+This anchors *why* you exist immediately.
+
+---
+
+## 5. Strengthen the contrast with mainstream tools
+
+Your “Most AI coding tools optimize for speed” section is good, but you can make it punchier by making the contrast *visual and blunt*.
+
+### Suggested tweak:
+
+Instead of:
+
+> Most AI coding tools optimize for speed.
+> Hivemind optimizes for correctness, safety, and trust.
+
+Try:
+
+**Most AI coding tools ask:**
+
+> “How fast can we generate code?”
+
+**Hivemind asks:**
+
+> “Can you explain, verify, undo, and trust this change?”
+
+This reframes the problem in a way engineers instantly get.
+
+---
+
+## 6. The “Problem” section is strong — but a bit long
+
+The bullet list is accurate, but you can tighten it to increase punch.
+
+For example, instead of listing *everything*, you could group:
+
+> Today’s AI coding tools:
+> — Modify code opaquely
+> — Hide context and execution state
+> — Break under retries and parallelism
+> — Assume humans will clean up the mess
+
+This keeps the message crisp without losing meaning.
+
+---
+
+## 7. Your “Insight” section is excellent — lean into it more
+
+This is one of your best lines:
+
+> The problem isn’t intelligence — it’s orchestration.
+
+That should be **visually dominant**.
+
+Consider making it a standalone callout or oversized quote.
+
+This is a *thesis statement*. Treat it like one.
+
+---
+
+## 8. “How It Works” is solid — one small improvement
+
+The flow is clear, but you can emphasise *irreversibility vs reversibility* more.
+
+Add a line like:
+
+> Every step produces artifacts you can inspect, replay, or roll back.
+
+That reinforces your core promise again.
+
+---
+
+## 9. The differentiation table is good — but rename the column
+
+“Typical AI tools” vs “Hivemind” is fine, but slightly generic.
+
+Consider:
+
+* **Ad-hoc AI coding**
+* **Hivemind**
+
+This subtly reinforces that the other side isn’t “competition” — it’s a category you’re deliberately rejecting.
+
+---
+
+## 10. The closing section is philosophically strong, but abstract
+
+This line is good:
+
+> Hivemind isn’t just agent-friendly. It’s agent-operable.
+
+But you might want to end with something *practical* as well.
+
+For example:
+
+> If you’ve ever asked:
+> *“What exactly did the agent do?”*
+> *“Can I safely undo this?”*
+> *“Can I trust this to run again?”*
+>
+> Hivemind is built for you.
+
+This ties the philosophy back to lived experience.
+
+---
+
+## 11. One sentence you should consider adding verbatim
+
+If you want **one killer line** to kill the vibe-coding confusion, I’d add this somewhere prominent:
+
+> **Hivemind is not about generating code faster.
+> It’s about making agentic work safe, inspectable, and governable.**
+
+That sentence alone clarifies *everything*.
+
+---
+
+## Overall verdict (honest)
+
+You’re doing **80–85% of this perfectly already**.
+
+What you need now is not:
+
+* More features
+* More explanation
+* More cleverness
+
+What you need is:
+
+* **Earlier filtering**
+* **Sharper contrast**
+* **More “this is NOT for everyone” energy**
+
+That will:
+
+* Attract the right people
+* Repel the wrong ones
+* And make the right audience feel *seen*
+
+If you want, next I can:
+
+* Rewrite just the hero + first 2 sections for maximum clarity
+* Or help you add a short FAQ (“Why not just use Cursor?” etc.)
+* Or do a brutal “skim test” for a 10-second reader
+
+But overall — this is already a very serious, credible landing.
+
+
+caling agents with structure
+ideas flow freely, tasks execute determenistically

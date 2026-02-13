@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ListTodo,
@@ -13,6 +13,7 @@ import {
 import { useHivemindStore } from '../stores/hivemindStore';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
+import { Card } from '../components/Card';
 import { PageHeader } from '../components/composites/PageHeader';
 import { FilterBar } from '../components/composites/FilterBar';
 import { DetailPanel } from '../components/composites/DetailPanel';
@@ -137,9 +138,39 @@ function ScopeDetails({ scope }: { scope: Scope }) {
 }
 
 export function Tasks() {
-  const { tasks, projects, selectedProjectId } = useHivemindStore();
+  const {
+    tasks,
+    projects,
+    selectedProjectId,
+    createTask,
+    updateTask,
+    closeTask,
+    startTask,
+    completeTask,
+    retryTask,
+    abortTask,
+    verifyRun,
+    verifyOverride,
+    refreshFromApi,
+    addNotification,
+    apiError,
+  } = useHivemindStore();
   const [filter, setFilter] = useState<FilterState>('all');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [newTaskProjectId, setNewTaskProjectId] = useState<string>(selectedProjectId ?? '');
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDescription, setNewTaskDescription] = useState('');
+
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [closeReason, setCloseReason] = useState('');
+  const [abortReason, setAbortReason] = useState('');
+  const [retryMode, setRetryMode] = useState<'clean' | 'continue'>('clean');
+  const [resetRetryCount, setResetRetryCount] = useState(false);
+  const [overrideDecision, setOverrideDecision] = useState<'pass' | 'fail'>('pass');
+  const [overrideReason, setOverrideReason] = useState('');
 
   const projectTasks = useMemo(() => {
     const filtered = selectedProjectId
@@ -154,6 +185,40 @@ export function Tasks() {
     () => (selectedTaskId ? tasks.find((t) => t.id === selectedTaskId) ?? null : null),
     [tasks, selectedTaskId],
   );
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      setNewTaskProjectId(selectedProjectId);
+    } else if (!newTaskProjectId && projects.length > 0) {
+      setNewTaskProjectId(projects[0].id);
+    }
+  }, [selectedProjectId, projects, newTaskProjectId]);
+
+  useEffect(() => {
+    if (!selectedTask) return;
+    setEditTitle(selectedTask.title);
+    setEditDescription(selectedTask.description ?? '');
+  }, [selectedTask]);
+
+  const runTaskAction = async (label: string, action: () => Promise<void>) => {
+    setBusyAction(label);
+    try {
+      await action();
+      addNotification({
+        type: 'success',
+        title: 'Task operation complete',
+        message: `${label} succeeded`,
+      });
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: `${label} failed`,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
 
   const getProjectName = (projectId: string): string => {
     const project = projects.find((p) => p.id === projectId);
@@ -189,10 +254,279 @@ export function Tasks() {
               chips={filterChips}
               onToggle={handleFilterToggle}
             />
-            <Button variant="primary" icon={<Plus size={16} />}>New Task</Button>
+            <Button
+              variant="secondary"
+              loading={busyAction === 'Refresh state'}
+              onClick={() => runTaskAction('Refresh state', async () => refreshFromApi())}
+            >
+              Refresh
+            </Button>
           </>
         }
       />
+
+      <Card variant="outlined" className={styles.opsPanel}>
+        <div className={styles.opsHeaderRow}>
+          <h4>Task operations</h4>
+          {apiError && <span className={styles.opsError}>{apiError}</span>}
+        </div>
+
+        <div className={styles.opsGrid}>
+          <section className={styles.opsSection}>
+            <h5>Create</h5>
+            <select
+              className={styles.opInput}
+              value={newTaskProjectId}
+              onChange={(e) => setNewTaskProjectId(e.target.value)}
+            >
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>{project.name}</option>
+              ))}
+            </select>
+            <input
+              className={styles.opInput}
+              placeholder="Task title"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+            />
+            <textarea
+              className={styles.opTextarea}
+              placeholder="Task description"
+              value={newTaskDescription}
+              onChange={(e) => setNewTaskDescription(e.target.value)}
+            />
+            <Button
+              variant="primary"
+              icon={<Plus size={14} />}
+              loading={busyAction === 'Create task'}
+              disabled={!newTaskProjectId || !newTaskTitle.trim()}
+              onClick={() =>
+                runTaskAction('Create task', async () => {
+                  await createTask({
+                    project: newTaskProjectId,
+                    title: newTaskTitle.trim(),
+                    description: newTaskDescription.trim() || undefined,
+                  });
+                  setNewTaskTitle('');
+                  setNewTaskDescription('');
+                })
+              }
+            >
+              Create task
+            </Button>
+          </section>
+
+          <section className={styles.opsSection}>
+            <h5>Selected task</h5>
+            <input
+              className={styles.opInput}
+              placeholder="Title"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              disabled={!selectedTask}
+            />
+            <textarea
+              className={styles.opTextarea}
+              placeholder="Description"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              disabled={!selectedTask}
+            />
+            <Button
+              variant="secondary"
+              loading={busyAction === 'Update task'}
+              disabled={!selectedTask}
+              onClick={() =>
+                runTaskAction('Update task', async () => {
+                  if (!selectedTask) return;
+                  await updateTask({
+                    task_id: selectedTask.id,
+                    title: editTitle.trim() || undefined,
+                    description: editDescription.trim() || undefined,
+                  });
+                })
+              }
+            >
+              Save metadata
+            </Button>
+
+            <input
+              className={styles.opInput}
+              placeholder="Close reason (optional)"
+              value={closeReason}
+              onChange={(e) => setCloseReason(e.target.value)}
+              disabled={!selectedTask}
+            />
+            <Button
+              variant="secondary"
+              loading={busyAction === 'Close task'}
+              disabled={!selectedTask}
+              onClick={() =>
+                runTaskAction('Close task', async () => {
+                  if (!selectedTask) return;
+                  await closeTask({ task_id: selectedTask.id, reason: closeReason.trim() || undefined });
+                })
+              }
+            >
+              Close task
+            </Button>
+
+            <div className={styles.actionRow}>
+              <Button
+                variant="primary"
+                size="sm"
+                loading={busyAction === 'Start task execution'}
+                disabled={!selectedTask}
+                onClick={() =>
+                  runTaskAction('Start task execution', async () => {
+                    if (!selectedTask) return;
+                    const result = await startTask({ task_id: selectedTask.id });
+                    addNotification({
+                      type: 'info',
+                      title: 'Attempt started',
+                      message: result.attempt_id,
+                    });
+                  })
+                }
+              >
+                Start
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busyAction === 'Complete task execution'}
+                disabled={!selectedTask}
+                onClick={() =>
+                  runTaskAction('Complete task execution', async () => {
+                    if (!selectedTask) return;
+                    await completeTask({ task_id: selectedTask.id });
+                  })
+                }
+              >
+                Complete
+              </Button>
+            </div>
+
+            <div className={styles.actionRow}>
+              <select
+                className={styles.opInput}
+                value={retryMode}
+                onChange={(e) => setRetryMode(e.target.value as 'clean' | 'continue')}
+                disabled={!selectedTask}
+              >
+                <option value="clean">Retry clean</option>
+                <option value="continue">Retry continue</option>
+              </select>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={resetRetryCount}
+                  onChange={(e) => setResetRetryCount(e.target.checked)}
+                  disabled={!selectedTask}
+                />
+                reset count
+              </label>
+            </div>
+
+            <div className={styles.actionRow}>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busyAction === 'Retry task'}
+                disabled={!selectedTask}
+                onClick={() =>
+                  runTaskAction('Retry task', async () => {
+                    if (!selectedTask) return;
+                    await retryTask({
+                      task_id: selectedTask.id,
+                      mode: retryMode,
+                      reset_count: resetRetryCount,
+                    });
+                  })
+                }
+              >
+                Retry
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                loading={busyAction === 'Abort task'}
+                disabled={!selectedTask}
+                onClick={() =>
+                  runTaskAction('Abort task', async () => {
+                    if (!selectedTask) return;
+                    await abortTask({
+                      task_id: selectedTask.id,
+                      reason: abortReason.trim() || undefined,
+                    });
+                  })
+                }
+              >
+                Abort
+              </Button>
+            </div>
+
+            <input
+              className={styles.opInput}
+              placeholder="Abort reason"
+              value={abortReason}
+              onChange={(e) => setAbortReason(e.target.value)}
+              disabled={!selectedTask}
+            />
+          </section>
+
+          <section className={styles.opsSection}>
+            <h5>Verification</h5>
+            <Button
+              variant="secondary"
+              loading={busyAction === 'Run verification'}
+              disabled={!selectedTask}
+              onClick={() =>
+                runTaskAction('Run verification', async () => {
+                  if (!selectedTask) return;
+                  await verifyRun({ task_id: selectedTask.id });
+                })
+              }
+            >
+              Run verify
+            </Button>
+
+            <select
+              className={styles.opInput}
+              value={overrideDecision}
+              onChange={(e) => setOverrideDecision(e.target.value as 'pass' | 'fail')}
+              disabled={!selectedTask}
+            >
+              <option value="pass">pass</option>
+              <option value="fail">fail</option>
+            </select>
+            <textarea
+              className={styles.opTextarea}
+              placeholder="Override reason"
+              value={overrideReason}
+              onChange={(e) => setOverrideReason(e.target.value)}
+              disabled={!selectedTask}
+            />
+            <Button
+              variant="danger"
+              loading={busyAction === 'Apply override'}
+              disabled={!selectedTask || !overrideReason.trim()}
+              onClick={() =>
+                runTaskAction('Apply override', async () => {
+                  if (!selectedTask) return;
+                  await verifyOverride({
+                    task_id: selectedTask.id,
+                    decision: overrideDecision,
+                    reason: overrideReason.trim(),
+                  });
+                })
+              }
+            >
+              Submit override
+            </Button>
+          </section>
+        </div>
+      </Card>
 
       <AnimatePresence mode="wait">
         {projectTasks.length === 0 ? (
@@ -211,7 +545,22 @@ export function Tasks() {
                   : 'Create your first task to get started.'
               }
               action={
-                <Button variant="primary" icon={<Plus size={16} />}>New Task</Button>
+                <Button
+                  variant="primary"
+                  icon={<Plus size={16} />}
+                  disabled={!newTaskProjectId || !newTaskTitle.trim()}
+                  onClick={() =>
+                    runTaskAction('Create task', async () => {
+                      await createTask({
+                        project: newTaskProjectId,
+                        title: newTaskTitle.trim(),
+                        description: newTaskDescription.trim() || undefined,
+                      });
+                    })
+                  }
+                >
+                  Create Task
+                </Button>
               }
             />
           </motion.div>

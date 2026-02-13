@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import {
   Activity,
   GitBranch,
@@ -45,10 +46,12 @@ const fadeInUp = {
 
 function eventCategoryIcon(category: string) {
   switch (category) {
+    case 'error': return <Activity size={14} />;
     case 'task': return <Zap size={14} />;
     case 'flow': return <GitBranch size={14} />;
     case 'execution': return <Play size={14} />;
     case 'verification': return <Shield size={14} />;
+    case 'scope': return <Shield size={14} />;
     case 'merge': return <GitMerge size={14} />;
     case 'graph': return <Layers size={14} />;
     case 'project': return <ListChecks size={14} />;
@@ -60,9 +63,11 @@ function eventCategoryIcon(category: string) {
 
 function eventCategoryBadgeVariant(category: string): 'default' | 'success' | 'warning' | 'error' | 'info' | 'amber' {
   switch (category) {
+    case 'error': return 'error';
     case 'execution': return 'info';
     case 'flow': return 'amber';
     case 'verification': return 'warning';
+    case 'scope': return 'warning';
     case 'merge': return 'success';
     case 'task': return 'default';
     case 'graph': return 'default';
@@ -74,6 +79,7 @@ function eventCategoryBadgeVariant(category: string): 'default' | 'success' | 'w
 }
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const {
     projects,
     tasks,
@@ -210,7 +216,15 @@ export function Dashboard() {
                   icon={<GitBranch size={32} strokeWidth={1} />}
                   title="No flows yet"
                   description="Create a graph and start a flow to begin execution"
-                  action={<Button size="sm" variant="primary">Create Flow</Button>}
+                  action={
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => navigate('/graphs')}
+                    >
+                      Create Flow
+                    </Button>
+                  }
                 />
               ) : (
                 projectFlows.map((flow, index) => {
@@ -358,9 +372,9 @@ export function Dashboard() {
                     { value: execStateTotals['verifying'] || 0, color: 'var(--state-verifying)', label: 'Verifying' },
                     { value: execStateTotals['pending'] || 0, color: 'var(--state-pending)', label: 'Pending' },
                     { value: execStateTotals['ready'] || 0, color: 'var(--accent-400)', label: 'Ready' },
-                    { value: execStateTotals['retry'] || 0, color: 'var(--state-warning)', label: 'Retry' },
+                    { value: execStateTotals['retry'] || 0, color: 'var(--state-retry)', label: 'Retry' },
                     { value: execStateTotals['failed'] || 0, color: 'var(--state-failed)', label: 'Failed' },
-                    { value: execStateTotals['escalated'] || 0, color: 'var(--state-error)', label: 'Escalated' },
+                    { value: execStateTotals['escalated'] || 0, color: 'var(--state-escalated)', label: 'Escalated' },
                   ]}
                 />
                 <Stack direction="row" gap={4}>

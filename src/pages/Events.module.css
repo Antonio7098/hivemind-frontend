@@ -266,6 +266,12 @@
   color: var(--text-primary);
 }
 
+.detailActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .closeBtn {
   width: 28px;
   height: 28px;

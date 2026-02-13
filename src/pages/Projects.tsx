@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   FolderKanban,
@@ -16,7 +17,6 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
 import { PageHeader } from '../components/composites/PageHeader';
-import { EmptyState } from '../components/composites/EmptyState';
 import { Grid } from '../components/primitives/Grid';
 import { Stack } from '../components/primitives/Stack';
 import { Text } from '../components/primitives/Text';
@@ -34,27 +34,100 @@ const fadeInUp = {
 };
 
 export function Projects() {
-  const { projects, tasks, graphs, flows, setSelectedProject, selectedProjectId } =
-    useHivemindStore();
+  const {
+    projects,
+    tasks,
+    graphs,
+    flows,
+    setSelectedProject,
+    selectedProjectId,
+    createProject,
+    updateProject,
+    setProjectRuntime,
+    attachProjectRepo,
+    detachProjectRepo,
+    refreshFromApi,
+    addNotification,
+    apiError,
+  } = useHivemindStore();
 
-  if (projects.length === 0) {
-    return (
-      <div className={styles.page}>
-        <PageHeader
-          title="Projects"
-          actions={
-            <Button variant="primary" icon={<Plus size={16} />}>New Project</Button>
-          }
-        />
-        <EmptyState
-          icon={<FolderKanban size={48} strokeWidth={1} />}
-          title="No projects yet"
-          description="Create your first project to start orchestrating"
-          action={<Button variant="primary" icon={<Plus size={16} />}>New Project</Button>}
-        />
-      </div>
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectDescription, setNewProjectDescription] = useState('');
+
+  const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null;
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+
+  const [runtimeAdapter, setRuntimeAdapter] = useState('opencode');
+  const [runtimeBinary, setRuntimeBinary] = useState('opencode');
+  const [runtimeModel, setRuntimeModel] = useState('');
+  const [runtimeArgs, setRuntimeArgs] = useState('');
+  const [runtimeEnv, setRuntimeEnv] = useState('');
+  const [runtimeTimeout, setRuntimeTimeout] = useState('600000');
+
+  const [repoPath, setRepoPath] = useState('');
+  const [repoName, setRepoName] = useState('');
+  const [repoAccess, setRepoAccess] = useState<'rw' | 'ro'>('rw');
+  const [detachRepoName, setDetachRepoName] = useState('');
+
+  useEffect(() => {
+    if (!selectedProject) return;
+
+    setEditName(selectedProject.name);
+    setEditDescription(selectedProject.description ?? '');
+
+    setRuntimeAdapter(selectedProject.runtime?.adapter_name ?? 'opencode');
+    setRuntimeBinary(selectedProject.runtime?.binary_path ?? 'opencode');
+    setRuntimeModel(selectedProject.runtime?.model ?? '');
+    setRuntimeArgs(selectedProject.runtime?.args.join(' ') ?? '');
+    setRuntimeEnv(
+      Object.entries(selectedProject.runtime?.env ?? {})
+        .map(([key, value]) => `${key}=${value}`)
+        .join('\n'),
     );
-  }
+    setRuntimeTimeout(String(selectedProject.runtime?.timeout_ms ?? 600000));
+
+    setDetachRepoName(selectedProject.repositories[0]?.name ?? '');
+  }, [selectedProject]);
+
+  const runAction = async (label: string, action: () => Promise<void>) => {
+    setBusyAction(label);
+    try {
+      await action();
+      addNotification({
+        type: 'success',
+        title: 'Project updated',
+        message: `${label} completed successfully`,
+      });
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: `${label} failed`,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const parseArgs = (raw: string): string[] =>
+    raw
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const parseEnv = (raw: string): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx <= 0) continue;
+      out[trimmed.slice(0, idx)] = trimmed.slice(idx + 1);
+    }
+    return out;
+  };
 
   return (
     <div className={styles.page}>
@@ -62,9 +135,234 @@ export function Projects() {
         title="Projects"
         subtitle="Manage your orchestration projects"
         actions={
-          <Button variant="primary" icon={<Plus size={16} />}>New Project</Button>
+          <Button
+            variant="secondary"
+            loading={busyAction === 'Refresh state'}
+            onClick={() => runAction('Refresh state', async () => refreshFromApi())}
+          >
+            Refresh
+          </Button>
         }
       />
+
+      <Card variant="outlined" className={styles.opsPanel}>
+        <div className={styles.opsHeaderRow}>
+          <Text variant="h4">Project operations</Text>
+          {apiError && <Text variant="caption" color="warning">{apiError}</Text>}
+        </div>
+
+        <div className={styles.opsGrid}>
+          <section className={styles.opsSection}>
+            <Text variant="overline" color="muted">Create</Text>
+            <input
+              className={styles.opInput}
+              placeholder="Project name"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+            />
+            <textarea
+              className={styles.opTextarea}
+              placeholder="Description (optional)"
+              value={newProjectDescription}
+              onChange={(e) => setNewProjectDescription(e.target.value)}
+            />
+            <Button
+              variant="primary"
+              icon={<Plus size={14} />}
+              loading={busyAction === 'Create project'}
+              disabled={!newProjectName.trim()}
+              onClick={() =>
+                runAction('Create project', async () => {
+                  await createProject({
+                    name: newProjectName.trim(),
+                    description: newProjectDescription.trim() || undefined,
+                  });
+                  setNewProjectName('');
+                  setNewProjectDescription('');
+                })
+              }
+            >
+              Create project
+            </Button>
+          </section>
+
+          <section className={styles.opsSection}>
+            <Text variant="overline" color="muted">Edit selected</Text>
+            <input
+              className={styles.opInput}
+              placeholder="Project name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              disabled={!selectedProject}
+            />
+            <textarea
+              className={styles.opTextarea}
+              placeholder="Description"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              disabled={!selectedProject}
+            />
+            <Button
+              variant="secondary"
+              loading={busyAction === 'Update project'}
+              disabled={!selectedProject}
+              onClick={() =>
+                runAction('Update project', async () => {
+                  if (!selectedProject) return;
+                  await updateProject({
+                    project: selectedProject.id,
+                    name: editName.trim() || undefined,
+                    description: editDescription.trim() || undefined,
+                  });
+                })
+              }
+            >
+              Save metadata
+            </Button>
+          </section>
+
+          <section className={styles.opsSection}>
+            <Text variant="overline" color="muted">Runtime</Text>
+            <input
+              className={styles.opInput}
+              placeholder="Adapter"
+              value={runtimeAdapter}
+              onChange={(e) => setRuntimeAdapter(e.target.value)}
+              disabled={!selectedProject}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Binary path"
+              value={runtimeBinary}
+              onChange={(e) => setRuntimeBinary(e.target.value)}
+              disabled={!selectedProject}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Model (optional)"
+              value={runtimeModel}
+              onChange={(e) => setRuntimeModel(e.target.value)}
+              disabled={!selectedProject}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Args (space separated)"
+              value={runtimeArgs}
+              onChange={(e) => setRuntimeArgs(e.target.value)}
+              disabled={!selectedProject}
+            />
+            <textarea
+              className={styles.opTextarea}
+              placeholder="Env (KEY=VALUE per line)"
+              value={runtimeEnv}
+              onChange={(e) => setRuntimeEnv(e.target.value)}
+              disabled={!selectedProject}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Timeout ms"
+              value={runtimeTimeout}
+              onChange={(e) => setRuntimeTimeout(e.target.value)}
+              disabled={!selectedProject}
+            />
+            <Button
+              variant="secondary"
+              loading={busyAction === 'Configure runtime'}
+              disabled={!selectedProject}
+              onClick={() =>
+                runAction('Configure runtime', async () => {
+                  if (!selectedProject) return;
+                  await setProjectRuntime({
+                    project: selectedProject.id,
+                    adapter: runtimeAdapter.trim() || undefined,
+                    binary_path: runtimeBinary.trim() || undefined,
+                    model: runtimeModel.trim() || undefined,
+                    args: parseArgs(runtimeArgs),
+                    env: parseEnv(runtimeEnv),
+                    timeout_ms: Number(runtimeTimeout) || 600000,
+                  });
+                })
+              }
+            >
+              Save runtime
+            </Button>
+          </section>
+
+          <section className={styles.opsSection}>
+            <Text variant="overline" color="muted">Repositories</Text>
+            <input
+              className={styles.opInput}
+              placeholder="Absolute repo path"
+              value={repoPath}
+              onChange={(e) => setRepoPath(e.target.value)}
+              disabled={!selectedProject}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Repo name (optional)"
+              value={repoName}
+              onChange={(e) => setRepoName(e.target.value)}
+              disabled={!selectedProject}
+            />
+            <select
+              className={styles.opInput}
+              value={repoAccess}
+              onChange={(e) => setRepoAccess(e.target.value as 'rw' | 'ro')}
+              disabled={!selectedProject}
+            >
+              <option value="rw">readwrite</option>
+              <option value="ro">readonly</option>
+            </select>
+            <Button
+              variant="secondary"
+              loading={busyAction === 'Attach repository'}
+              disabled={!selectedProject || !repoPath.trim()}
+              onClick={() =>
+                runAction('Attach repository', async () => {
+                  if (!selectedProject) return;
+                  await attachProjectRepo({
+                    project: selectedProject.id,
+                    path: repoPath.trim(),
+                    name: repoName.trim() || undefined,
+                    access: repoAccess,
+                  });
+                  setRepoPath('');
+                  setRepoName('');
+                })
+              }
+            >
+              Attach repo
+            </Button>
+
+            <select
+              className={styles.opInput}
+              value={detachRepoName}
+              onChange={(e) => setDetachRepoName(e.target.value)}
+              disabled={!selectedProject || selectedProject.repositories.length === 0}
+            >
+              {selectedProject?.repositories.map((repo) => (
+                <option key={repo.name} value={repo.name}>{repo.name}</option>
+              ))}
+            </select>
+            <Button
+              variant="danger"
+              loading={busyAction === 'Detach repository'}
+              disabled={!selectedProject || !detachRepoName}
+              onClick={() =>
+                runAction('Detach repository', async () => {
+                  if (!selectedProject || !detachRepoName) return;
+                  await detachProjectRepo({
+                    project: selectedProject.id,
+                    repo_name: detachRepoName,
+                  });
+                })
+              }
+            >
+              Detach repo
+            </Button>
+          </section>
+        </div>
+      </Card>
 
       <motion.div variants={stagger} initial="hidden" animate="show">
         <Grid columns={3} gap={4} className={styles.projectGrid}>

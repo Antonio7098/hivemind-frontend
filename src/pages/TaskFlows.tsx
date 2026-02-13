@@ -77,8 +77,38 @@ function getFlowIcon(state: string) {
 // ─── Component ───
 
 export function TaskFlows() {
-  const { flows, graphs, selectedProjectId } = useHivemindStore();
+  const {
+    flows,
+    graphs,
+    selectedProjectId,
+    startFlow,
+    tickFlow,
+    pauseFlow,
+    resumeFlow,
+    abortFlow,
+    cleanupWorktrees,
+    prepareMerge,
+    replayFlow,
+    listWorktrees,
+    inspectWorktree,
+    inspectAttempt,
+    fetchVerifyResults,
+    fetchAttemptDiff,
+    completeCheckpoint,
+    refreshFromApi,
+    addNotification,
+    apiError,
+  } = useHivemindStore();
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [abortReason, setAbortReason] = useState('');
+  const [abortForce, setAbortForce] = useState(false);
+  const [mergeTargetBranch, setMergeTargetBranch] = useState('');
+  const [attemptId, setAttemptId] = useState('');
+  const [checkpointId, setCheckpointId] = useState('');
+  const [checkpointSummary, setCheckpointSummary] = useState('');
+  const [inspectTaskId, setInspectTaskId] = useState('');
+  const [opOutput, setOpOutput] = useState<string>('');
 
   const projectFlows = useMemo(
     () => flows.filter((f) => f.project_id === selectedProjectId),
@@ -96,12 +126,346 @@ export function TaskFlows() {
 
   const selectedGraph = selectedFlow ? graphMap[selectedFlow.graph_id] ?? null : null;
 
+  const runFlowAction = async (label: string, action: () => Promise<void>) => {
+    setBusyAction(label);
+    try {
+      await action();
+      addNotification({
+        type: 'success',
+        title: 'Flow operation complete',
+        message: `${label} succeeded`,
+      });
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: `${label} failed`,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   return (
     <div className={styles.page}>
       <PageHeader
         title="Flows"
         subtitle="Execute and monitor orchestrated workflows"
+        actions={
+          <Button
+            variant="secondary"
+            loading={busyAction === 'Refresh state'}
+            onClick={() => runFlowAction('Refresh state', async () => refreshFromApi())}
+          >
+            Refresh
+          </Button>
+        }
       />
+
+      <Card variant="outlined" className={styles.opsPanel}>
+        <div className={styles.opsHeaderRow}>
+          <Text variant="h4">Flow operations</Text>
+          {apiError && <Text variant="caption" color="warning">{apiError}</Text>}
+        </div>
+
+        <div className={styles.opsGrid}>
+          <section className={styles.opsSection}>
+            <Text variant="overline" color="muted">Selected flow controls</Text>
+            <Text variant="caption" color="muted">
+              {selectedFlow ? `Flow ${selectedFlow.id}` : 'Select a flow to run controls'}
+            </Text>
+
+            <div className={styles.actionRow}>
+              <Button
+                size="sm"
+                variant="primary"
+                loading={busyAction === 'Start flow'}
+                disabled={!selectedFlow}
+                onClick={() =>
+                  runFlowAction('Start flow', async () => {
+                    if (!selectedFlow) return;
+                    await startFlow({ flow_id: selectedFlow.id });
+                  })
+                }
+              >
+                Start
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={busyAction === 'Tick flow'}
+                disabled={!selectedFlow}
+                onClick={() =>
+                  runFlowAction('Tick flow', async () => {
+                    if (!selectedFlow) return;
+                    await tickFlow({ flow_id: selectedFlow.id, interactive: false });
+                  })
+                }
+              >
+                Tick
+              </Button>
+            </div>
+
+            <div className={styles.actionRow}>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={busyAction === 'Pause flow'}
+                disabled={!selectedFlow}
+                onClick={() =>
+                  runFlowAction('Pause flow', async () => {
+                    if (!selectedFlow) return;
+                    await pauseFlow({ flow_id: selectedFlow.id });
+                  })
+                }
+              >
+                Pause
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                loading={busyAction === 'Resume flow'}
+                disabled={!selectedFlow}
+                onClick={() =>
+                  runFlowAction('Resume flow', async () => {
+                    if (!selectedFlow) return;
+                    await resumeFlow({ flow_id: selectedFlow.id });
+                  })
+                }
+              >
+                Resume
+              </Button>
+            </div>
+          </section>
+
+          <section className={styles.opsSection}>
+            <Text variant="overline" color="muted">Abort and cleanup</Text>
+            <input
+              className={styles.opInput}
+              placeholder="Abort reason"
+              value={abortReason}
+              onChange={(e) => setAbortReason(e.target.value)}
+              disabled={!selectedFlow}
+            />
+            <label className={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                checked={abortForce}
+                onChange={(e) => setAbortForce(e.target.checked)}
+                disabled={!selectedFlow}
+              />
+              force abort
+            </label>
+            <Button
+              variant="danger"
+              loading={busyAction === 'Abort flow'}
+              disabled={!selectedFlow}
+              onClick={() =>
+                runFlowAction('Abort flow', async () => {
+                  if (!selectedFlow) return;
+                  await abortFlow({
+                    flow_id: selectedFlow.id,
+                    reason: abortReason.trim() || undefined,
+                    force: abortForce,
+                  });
+                })
+              }
+            >
+              Abort flow
+            </Button>
+
+            <Button
+              variant="secondary"
+              loading={busyAction === 'Cleanup worktrees'}
+              disabled={!selectedFlow}
+              onClick={() =>
+                runFlowAction('Cleanup worktrees', async () => {
+                  if (!selectedFlow) return;
+                  await cleanupWorktrees({ flow_id: selectedFlow.id });
+                })
+              }
+            >
+              Cleanup worktrees
+            </Button>
+          </section>
+
+          <section className={styles.opsSection}>
+            <Text variant="overline" color="muted">Merge preparation</Text>
+            <input
+              className={styles.opInput}
+              placeholder="Target branch (optional)"
+              value={mergeTargetBranch}
+              onChange={(e) => setMergeTargetBranch(e.target.value)}
+              disabled={!selectedFlow}
+            />
+            <Button
+              variant="primary"
+              loading={busyAction === 'Prepare merge'}
+              disabled={!selectedFlow}
+              onClick={() =>
+                runFlowAction('Prepare merge', async () => {
+                  if (!selectedFlow) return;
+                  await prepareMerge({
+                    flow_id: selectedFlow.id,
+                    target: mergeTargetBranch.trim() || undefined,
+                  });
+                })
+              }
+            >
+              Prepare merge
+            </Button>
+          </section>
+
+          <section className={styles.opsSection}>
+            <Text variant="overline" color="muted">Diagnostics and artifacts</Text>
+            <input
+              className={styles.opInput}
+              placeholder="Attempt ID"
+              value={attemptId}
+              onChange={(e) => setAttemptId(e.target.value)}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Task ID for worktree inspect"
+              value={inspectTaskId}
+              onChange={(e) => setInspectTaskId(e.target.value)}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Checkpoint ID"
+              value={checkpointId}
+              onChange={(e) => setCheckpointId(e.target.value)}
+            />
+            <textarea
+              className={styles.opTextarea}
+              placeholder="Checkpoint summary (optional)"
+              value={checkpointSummary}
+              onChange={(e) => setCheckpointSummary(e.target.value)}
+            />
+
+            <div className={styles.actionRow}>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={busyAction === 'Replay flow'}
+                disabled={!selectedFlow}
+                onClick={() =>
+                  runFlowAction('Replay flow', async () => {
+                    if (!selectedFlow) return;
+                    const result = await replayFlow({ flow_id: selectedFlow.id });
+                    setOpOutput(JSON.stringify(result, null, 2));
+                  })
+                }
+              >
+                Replay
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={busyAction === 'List worktrees'}
+                disabled={!selectedFlow}
+                onClick={() =>
+                  runFlowAction('List worktrees', async () => {
+                    if (!selectedFlow) return;
+                    const result = await listWorktrees({ flow_id: selectedFlow.id });
+                    setOpOutput(JSON.stringify(result, null, 2));
+                  })
+                }
+              >
+                Worktrees
+              </Button>
+            </div>
+
+            <div className={styles.actionRow}>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={busyAction === 'Inspect worktree'}
+                disabled={!inspectTaskId.trim()}
+                onClick={() =>
+                  runFlowAction('Inspect worktree', async () => {
+                    const result = await inspectWorktree({ task_id: inspectTaskId.trim() });
+                    setOpOutput(JSON.stringify(result, null, 2));
+                  })
+                }
+              >
+                Inspect worktree
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={busyAction === 'Inspect attempt'}
+                disabled={!attemptId.trim()}
+                onClick={() =>
+                  runFlowAction('Inspect attempt', async () => {
+                    const result = await inspectAttempt({
+                      attempt_id: attemptId.trim(),
+                      diff: true,
+                    });
+                    setOpOutput(JSON.stringify(result, null, 2));
+                  })
+                }
+              >
+                Inspect attempt
+              </Button>
+            </div>
+
+            <div className={styles.actionRow}>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={busyAction === 'Fetch verify results'}
+                disabled={!attemptId.trim()}
+                onClick={() =>
+                  runFlowAction('Fetch verify results', async () => {
+                    const result = await fetchVerifyResults({
+                      attempt_id: attemptId.trim(),
+                      output: true,
+                    });
+                    setOpOutput(JSON.stringify(result, null, 2));
+                  })
+                }
+              >
+                Verify results
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={busyAction === 'Fetch attempt diff'}
+                disabled={!attemptId.trim()}
+                onClick={() =>
+                  runFlowAction('Fetch attempt diff', async () => {
+                    const result = await fetchAttemptDiff({ attempt_id: attemptId.trim() });
+                    setOpOutput(JSON.stringify(result, null, 2));
+                  })
+                }
+              >
+                Attempt diff
+              </Button>
+            </div>
+
+            <Button
+              variant="primary"
+              loading={busyAction === 'Complete checkpoint'}
+              disabled={!attemptId.trim() || !checkpointId.trim()}
+              onClick={() =>
+                runFlowAction('Complete checkpoint', async () => {
+                  const result = await completeCheckpoint({
+                    attempt_id: attemptId.trim(),
+                    checkpoint_id: checkpointId.trim(),
+                    summary: checkpointSummary.trim() || undefined,
+                  });
+                  setOpOutput(JSON.stringify(result, null, 2));
+                })
+              }
+            >
+              Complete checkpoint
+            </Button>
+
+            <pre className={styles.opOutput}>{opOutput || 'Operation output will appear here...'}</pre>
+          </section>
+        </div>
+      </Card>
 
       <div className={styles.content}>
         {/* ─── Left Panel: Flow List ─── */}
@@ -184,22 +548,62 @@ export function TaskFlows() {
                     {/* Action buttons */}
                     <div className={styles.flowActions}>
                       {flow.state === 'created' && (
-                        <Button size="sm" variant="primary" icon={<Play size={14} />}>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          icon={<Play size={14} />}
+                          loading={busyAction === `Start flow ${flow.id}`}
+                          onClick={() =>
+                            runFlowAction(`Start flow ${flow.id}`, async () => {
+                              await startFlow({ flow_id: flow.id });
+                            })
+                          }
+                        >
                           Start
                         </Button>
                       )}
                       {flow.state === 'running' && (
-                        <Button size="sm" variant="secondary" icon={<Pause size={14} />}>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          icon={<Pause size={14} />}
+                          loading={busyAction === `Pause flow ${flow.id}`}
+                          onClick={() =>
+                            runFlowAction(`Pause flow ${flow.id}`, async () => {
+                              await pauseFlow({ flow_id: flow.id });
+                            })
+                          }
+                        >
                           Pause
                         </Button>
                       )}
                       {flow.state === 'paused' && (
-                        <Button size="sm" variant="primary" icon={<Play size={14} />}>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          icon={<Play size={14} />}
+                          loading={busyAction === `Resume flow ${flow.id}`}
+                          onClick={() =>
+                            runFlowAction(`Resume flow ${flow.id}`, async () => {
+                              await resumeFlow({ flow_id: flow.id });
+                            })
+                          }
+                        >
                           Resume
                         </Button>
                       )}
                       {(flow.state === 'running' || flow.state === 'paused') && (
-                        <Button size="sm" variant="danger" icon={<Square size={14} />}>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          icon={<Square size={14} />}
+                          loading={busyAction === `Abort flow ${flow.id}`}
+                          onClick={() =>
+                            runFlowAction(`Abort flow ${flow.id}`, async () => {
+                              await abortFlow({ flow_id: flow.id });
+                            })
+                          }
+                        >
                           Abort
                         </Button>
                       )}

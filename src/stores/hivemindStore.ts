@@ -8,6 +8,11 @@ import type {
   HivemindEvent,
   Runtime,
   Notification,
+  ApiCatalog,
+  WorktreeStatus,
+  VerifyResultsView,
+  AttemptInspectView,
+  CheckpointCompletionResult,
 } from '../types';
 
 const API_BASE_URL =
@@ -27,6 +32,73 @@ type UiState = {
   merge_states: MergeState[];
   events: HivemindEvent[];
 };
+
+type NotifyInput = Omit<Notification, 'id' | 'timestamp' | 'read'>;
+
+function mapProjectsToRuntimes(projects: Project[]): Runtime[] {
+  return projects
+    .filter((project) => project.runtime)
+    .map((project) => ({
+      id: `runtime-${project.id}`,
+      name: project.name,
+      type: project.runtime?.adapter_name ?? 'unknown',
+      status: 'healthy' as const,
+      version: project.runtime?.model ?? undefined,
+    }));
+}
+
+function toApiErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (init?.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers,
+  });
+
+  const text = await response.text();
+  const parsed = text.length > 0
+    ? (JSON.parse(text) as ApiResponse<T>)
+    : null;
+
+  if (!parsed || typeof parsed !== 'object' || !('success' in parsed)) {
+    throw new Error(`Invalid API response from ${path}`);
+  }
+
+  if (!parsed.success) {
+    throw new Error(parsed.error.message);
+  }
+
+  return parsed.data;
+}
+
+function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) {
+      search.set(key, String(value));
+    }
+  }
+  const query = search.toString();
+  return query.length > 0 ? `?${query}` : '';
+}
+
+async function apiGet<T>(path: string): Promise<T> {
+  return apiRequest<T>(path, { method: 'GET' });
+}
+
+async function apiPost<T>(path: string, payload: unknown): Promise<T> {
+  return apiRequest<T>(path, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MOCK DATA — Matches exact Rust backend structs
@@ -379,6 +451,7 @@ interface HivemindStore {
 
   apiConnected: boolean;
   apiError: string | null;
+  apiCatalog: ApiCatalog | null;
 
   // ─── UI State ───
   selectedProjectId: string | null;
@@ -395,11 +468,121 @@ interface HivemindStore {
   toggleMobileMenu: () => void;
   closeMobileMenu: () => void;
   addEvent: (event: HivemindEvent) => void;
-  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
+  addNotification: (notification: NotifyInput) => void;
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
 
   refreshFromApi: (eventsLimit?: number) => Promise<void>;
+  fetchVersion: () => Promise<string>;
+  fetchApiCatalog: () => Promise<ApiCatalog>;
+  inspectEvent: (payload: { event_id: string }) => Promise<Record<string, unknown>>;
+
+  createProject: (payload: { name: string; description?: string }) => Promise<void>;
+  updateProject: (payload: {
+    project: string;
+    name?: string;
+    description?: string;
+  }) => Promise<void>;
+  setProjectRuntime: (payload: {
+    project: string;
+    adapter?: string;
+    binary_path?: string;
+    model?: string;
+    args?: string[];
+    env?: Record<string, string>;
+    timeout_ms?: number;
+  }) => Promise<void>;
+  attachProjectRepo: (payload: {
+    project: string;
+    path: string;
+    name?: string;
+    access?: 'ro' | 'rw' | 'readonly' | 'readwrite';
+  }) => Promise<void>;
+  detachProjectRepo: (payload: { project: string; repo_name: string }) => Promise<void>;
+
+  createTask: (payload: {
+    project: string;
+    title: string;
+    description?: string;
+  }) => Promise<void>;
+  updateTask: (payload: {
+    task_id: string;
+    title?: string;
+    description?: string;
+  }) => Promise<void>;
+  closeTask: (payload: { task_id: string; reason?: string }) => Promise<void>;
+  startTask: (payload: { task_id: string }) => Promise<{ attempt_id: string }>;
+  completeTask: (payload: { task_id: string }) => Promise<void>;
+  retryTask: (payload: {
+    task_id: string;
+    reset_count?: boolean;
+    mode?: 'clean' | 'continue';
+  }) => Promise<void>;
+  abortTask: (payload: { task_id: string; reason?: string }) => Promise<void>;
+
+  createGraph: (payload: {
+    project: string;
+    name: string;
+    from_tasks: string[];
+  }) => Promise<void>;
+  addGraphDependency: (payload: {
+    graph_id: string;
+    from_task: string;
+    to_task: string;
+  }) => Promise<void>;
+  addGraphCheck: (payload: {
+    graph_id: string;
+    task_id: string;
+    name: string;
+    command: string;
+    required?: boolean;
+    timeout_ms?: number;
+  }) => Promise<void>;
+  validateGraph: (payload: { graph_id: string }) => Promise<void>;
+
+  createFlow: (payload: { graph_id: string; name?: string }) => Promise<void>;
+  startFlow: (payload: { flow_id: string }) => Promise<void>;
+  tickFlow: (payload: { flow_id: string; interactive?: boolean }) => Promise<void>;
+  pauseFlow: (payload: { flow_id: string }) => Promise<void>;
+  resumeFlow: (payload: { flow_id: string }) => Promise<void>;
+  abortFlow: (payload: {
+    flow_id: string;
+    reason?: string;
+    force?: boolean;
+  }) => Promise<void>;
+
+  verifyOverride: (payload: {
+    task_id: string;
+    decision: string;
+    reason: string;
+  }) => Promise<void>;
+  verifyRun: (payload: { task_id: string }) => Promise<void>;
+
+  prepareMerge: (payload: { flow_id: string; target?: string }) => Promise<void>;
+  approveMerge: (payload: { flow_id: string }) => Promise<void>;
+  executeMerge: (payload: { flow_id: string }) => Promise<void>;
+
+  completeCheckpoint: (payload: {
+    attempt_id: string;
+    checkpoint_id: string;
+    summary?: string;
+  }) => Promise<CheckpointCompletionResult>;
+  cleanupWorktrees: (payload: { flow_id: string }) => Promise<void>;
+
+  fetchVerifyResults: (payload: {
+    attempt_id: string;
+    output?: boolean;
+  }) => Promise<VerifyResultsView>;
+  inspectAttempt: (payload: {
+    attempt_id: string;
+    diff?: boolean;
+  }) => Promise<AttemptInspectView>;
+  fetchAttemptDiff: (payload: {
+    attempt_id: string;
+  }) => Promise<{ attempt_id: string; diff: string | null }>;
+  replayFlow: (payload: { flow_id: string }) => Promise<Record<string, unknown>>;
+  listWorktrees: (payload: { flow_id: string }) => Promise<WorktreeStatus[]>;
+  inspectWorktree: (payload: { task_id: string }) => Promise<WorktreeStatus | null>;
 
   // ─── Derived ───
   getProject: (id: string) => Project | undefined;
@@ -450,6 +633,7 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
 
   apiConnected: false,
   apiError: null,
+  apiCatalog: null,
 
   // ─── Actions ───
   setSelectedProject: (id) => set({ selectedProjectId: id }),
@@ -481,33 +665,207 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
     try {
       const paused = get().eventStreamPaused;
       const effectiveLimit = paused ? 0 : eventsLimit;
-      const res = await fetch(`${API_BASE_URL}/api/state?events_limit=${effectiveLimit}`);
-      const json = (await res.json()) as ApiResponse<UiState>;
-
-      if (!json.success) {
-        set({ apiConnected: false, apiError: json.error.message });
-        return;
-      }
+      const state = await apiGet<UiState>(
+        `/api/state${buildQuery({ events_limit: effectiveLimit })}`,
+      );
 
       set((s) => ({
-        projects: json.data.projects,
-        tasks: json.data.tasks,
-        graphs: json.data.graphs,
-        flows: json.data.flows,
-        mergeStates: json.data.merge_states,
-        events: paused ? s.events : json.data.events,
+        projects: state.projects,
+        tasks: state.tasks,
+        graphs: state.graphs,
+        flows: state.flows,
+        mergeStates: state.merge_states,
+        events: paused ? s.events : state.events,
+        runtimes: mapProjectsToRuntimes(state.projects),
         apiConnected: true,
         apiError: null,
       }));
 
       const current = get().selectedProjectId;
-      if (current && !json.data.projects.some((p) => p.id === current)) {
-        set({ selectedProjectId: json.data.projects[0]?.id ?? null });
+      if (current && !state.projects.some((p) => p.id === current)) {
+        set({ selectedProjectId: state.projects[0]?.id ?? null });
       }
-    } catch (e) {
-      set({ apiConnected: false, apiError: e instanceof Error ? e.message : String(e) });
+    } catch (error) {
+      set({ apiConnected: false, apiError: toApiErrorMessage(error) });
     }
   },
+
+  fetchVersion: async () => {
+    const value = await apiGet<{ version: string }>('/api/version');
+    return value.version;
+  },
+
+  fetchApiCatalog: async () => {
+    try {
+      const catalog = await apiGet<ApiCatalog>('/api/catalog');
+      set({ apiCatalog: catalog, apiConnected: true, apiError: null });
+      return catalog;
+    } catch (error) {
+      set({ apiConnected: false, apiError: toApiErrorMessage(error) });
+      throw error;
+    }
+  },
+
+  inspectEvent: async (payload) =>
+    apiGet<Record<string, unknown>>(
+      `/api/events/inspect${buildQuery({ event_id: payload.event_id })}`,
+    ),
+
+  createProject: async (payload) => {
+    await apiPost('/api/projects/create', payload);
+    await get().refreshFromApi();
+  },
+  updateProject: async (payload) => {
+    await apiPost('/api/projects/update', payload);
+    await get().refreshFromApi();
+  },
+  setProjectRuntime: async (payload) => {
+    await apiPost('/api/projects/runtime', payload);
+    await get().refreshFromApi();
+  },
+  attachProjectRepo: async (payload) => {
+    await apiPost('/api/projects/repos/attach', payload);
+    await get().refreshFromApi();
+  },
+  detachProjectRepo: async (payload) => {
+    await apiPost('/api/projects/repos/detach', payload);
+    await get().refreshFromApi();
+  },
+
+  createTask: async (payload) => {
+    await apiPost('/api/tasks/create', payload);
+    await get().refreshFromApi();
+  },
+  updateTask: async (payload) => {
+    await apiPost('/api/tasks/update', payload);
+    await get().refreshFromApi();
+  },
+  closeTask: async (payload) => {
+    await apiPost('/api/tasks/close', payload);
+    await get().refreshFromApi();
+  },
+  startTask: async (payload) => {
+    const result = await apiPost<{ attempt_id: string }>('/api/tasks/start', payload);
+    await get().refreshFromApi();
+    return result;
+  },
+  completeTask: async (payload) => {
+    await apiPost('/api/tasks/complete', payload);
+    await get().refreshFromApi();
+  },
+  retryTask: async (payload) => {
+    await apiPost('/api/tasks/retry', payload);
+    await get().refreshFromApi();
+  },
+  abortTask: async (payload) => {
+    await apiPost('/api/tasks/abort', payload);
+    await get().refreshFromApi();
+  },
+
+  createGraph: async (payload) => {
+    await apiPost('/api/graphs/create', payload);
+    await get().refreshFromApi();
+  },
+  addGraphDependency: async (payload) => {
+    await apiPost('/api/graphs/dependencies/add', payload);
+    await get().refreshFromApi();
+  },
+  addGraphCheck: async (payload) => {
+    await apiPost('/api/graphs/checks/add', payload);
+    await get().refreshFromApi();
+  },
+  validateGraph: async (payload) => {
+    await apiPost('/api/graphs/validate', payload);
+    await get().refreshFromApi();
+  },
+
+  createFlow: async (payload) => {
+    await apiPost('/api/flows/create', payload);
+    await get().refreshFromApi();
+  },
+  startFlow: async (payload) => {
+    await apiPost('/api/flows/start', payload);
+    await get().refreshFromApi();
+  },
+  tickFlow: async (payload) => {
+    await apiPost('/api/flows/tick', payload);
+    await get().refreshFromApi();
+  },
+  pauseFlow: async (payload) => {
+    await apiPost('/api/flows/pause', payload);
+    await get().refreshFromApi();
+  },
+  resumeFlow: async (payload) => {
+    await apiPost('/api/flows/resume', payload);
+    await get().refreshFromApi();
+  },
+  abortFlow: async (payload) => {
+    await apiPost('/api/flows/abort', payload);
+    await get().refreshFromApi();
+  },
+
+  verifyOverride: async (payload) => {
+    await apiPost('/api/verify/override', payload);
+    await get().refreshFromApi();
+  },
+  verifyRun: async (payload) => {
+    await apiPost('/api/verify/run', payload);
+    await get().refreshFromApi();
+  },
+
+  prepareMerge: async (payload) => {
+    await apiPost('/api/merge/prepare', payload);
+    await get().refreshFromApi();
+  },
+  approveMerge: async (payload) => {
+    await apiPost('/api/merge/approve', payload);
+    await get().refreshFromApi();
+  },
+  executeMerge: async (payload) => {
+    await apiPost('/api/merge/execute', payload);
+    await get().refreshFromApi();
+  },
+
+  completeCheckpoint: async (payload) => {
+    const result = await apiPost<CheckpointCompletionResult>('/api/checkpoints/complete', payload);
+    await get().refreshFromApi();
+    return result;
+  },
+  cleanupWorktrees: async (payload) => {
+    await apiPost('/api/worktrees/cleanup', payload);
+    await get().refreshFromApi();
+  },
+
+  fetchVerifyResults: async (payload) =>
+    apiGet<VerifyResultsView>(
+      `/api/verify/results${buildQuery({
+        attempt_id: payload.attempt_id,
+        output: payload.output,
+      })}`,
+    ),
+  inspectAttempt: async (payload) =>
+    apiGet<AttemptInspectView>(
+      `/api/attempts/inspect${buildQuery({
+        attempt_id: payload.attempt_id,
+        diff: payload.diff,
+      })}`,
+    ),
+  fetchAttemptDiff: async (payload) =>
+    apiGet<{ attempt_id: string; diff: string | null }>(
+      `/api/attempts/diff${buildQuery({ attempt_id: payload.attempt_id })}`,
+    ),
+  replayFlow: async (payload) =>
+    apiGet<Record<string, unknown>>(
+      `/api/flows/replay${buildQuery({ flow_id: payload.flow_id })}`,
+    ),
+  listWorktrees: async (payload) =>
+    apiGet<WorktreeStatus[]>(
+      `/api/worktrees${buildQuery({ flow_id: payload.flow_id })}`,
+    ),
+  inspectWorktree: async (payload) =>
+    apiGet<WorktreeStatus | null>(
+      `/api/worktrees/inspect${buildQuery({ task_id: payload.task_id })}`,
+    ),
 
   // ─── Derived ───
   getProject: (id) => get().projects.find((p) => p.id === id),

@@ -38,8 +38,19 @@ const statusIcon: Record<MergeStatus, typeof GitMerge> = {
 };
 
 export function Merges() {
-  const { mergeStates, flows, graphs, selectedProjectId } = useHivemindStore();
+  const {
+    mergeStates,
+    flows,
+    graphs,
+    selectedProjectId,
+    approveMerge,
+    executeMerge,
+    refreshFromApi,
+    addNotification,
+    apiError,
+  } = useHivemindStore();
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
   // Filter merges by project through their linked flows
   const projectMerges = useMemo(() => {
@@ -63,12 +74,47 @@ export function Merges() {
 
   const getFlow = (flowId: string) => flows.find((f) => f.id === flowId);
 
+  const runMergeAction = async (label: string, action: () => Promise<void>) => {
+    setBusyAction(label);
+    try {
+      await action();
+      addNotification({
+        type: 'success',
+        title: 'Merge operation complete',
+        message: `${label} succeeded`,
+      });
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: `${label} failed`,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   return (
     <div className={styles.page}>
       <PageHeader
         title="Merges"
         subtitle="Review, approve, and execute merges from completed flows"
+        actions={
+          <Button
+            variant="secondary"
+            loading={busyAction === 'Refresh state'}
+            onClick={() => runMergeAction('Refresh state', async () => refreshFromApi())}
+          >
+            Refresh
+          </Button>
+        }
       />
+
+      {apiError && (
+        <Text variant="caption" color="warning" style={{ marginBottom: 'var(--space-3)', display: 'block' }}>
+          {apiError}
+        </Text>
+      )}
 
       <div className={styles.content}>
         {/* Merge list */}
@@ -155,12 +201,32 @@ export function Merges() {
                         {/* Action buttons */}
                         <Stack direction="row" gap={2}>
                           {merge.status === 'prepared' && (
-                            <Button size="sm" variant="primary" icon={<ThumbsUp size={14} />}>
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              icon={<ThumbsUp size={14} />}
+                              loading={busyAction === `Approve merge ${merge.flow_id}`}
+                              onClick={() =>
+                                runMergeAction(`Approve merge ${merge.flow_id}`, async () => {
+                                  await approveMerge({ flow_id: merge.flow_id });
+                                })
+                              }
+                            >
                               Approve
                             </Button>
                           )}
                           {merge.status === 'approved' && (
-                            <Button size="sm" variant="primary" icon={<Play size={14} />}>
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              icon={<Play size={14} />}
+                              loading={busyAction === `Execute merge ${merge.flow_id}`}
+                              onClick={() =>
+                                runMergeAction(`Execute merge ${merge.flow_id}`, async () => {
+                                  await executeMerge({ flow_id: merge.flow_id });
+                                })
+                              }
+                            >
                               Execute Merge
                             </Button>
                           )}
@@ -270,12 +336,30 @@ export function Merges() {
                     {/* Actions */}
                     <Stack direction="row" gap={2}>
                       {selectedMerge.status === 'prepared' && (
-                        <Button variant="primary" icon={<ThumbsUp size={14} />}>
+                        <Button
+                          variant="primary"
+                          icon={<ThumbsUp size={14} />}
+                          loading={busyAction === `Approve merge ${selectedMerge.flow_id}`}
+                          onClick={() =>
+                            runMergeAction(`Approve merge ${selectedMerge.flow_id}`, async () => {
+                              await approveMerge({ flow_id: selectedMerge.flow_id });
+                            })
+                          }
+                        >
                           Approve Merge
                         </Button>
                       )}
                       {selectedMerge.status === 'approved' && (
-                        <Button variant="primary" icon={<Play size={14} />}>
+                        <Button
+                          variant="primary"
+                          icon={<Play size={14} />}
+                          loading={busyAction === `Execute merge ${selectedMerge.flow_id}`}
+                          onClick={() =>
+                            runMergeAction(`Execute merge ${selectedMerge.flow_id}`, async () => {
+                              await executeMerge({ flow_id: selectedMerge.flow_id });
+                            })
+                          }
+                        >
                           Execute Merge
                         </Button>
                       )}

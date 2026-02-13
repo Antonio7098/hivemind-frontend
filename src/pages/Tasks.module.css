@@ -4,6 +4,90 @@
   position: relative;
 }
 
+.opsPanel {
+  margin-bottom: var(--space-4);
+}
+
+.opsHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.opsHeaderRow h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.opsError {
+  font-size: 0.75rem;
+  color: var(--status-warning);
+}
+
+.opsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+.opsSection {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: var(--surface-0);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.opsSection h5 {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.opInput,
+.opTextarea {
+  width: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+}
+
+.opInput:focus,
+.opTextarea:focus {
+  outline: none;
+  border-color: var(--accent-500);
+}
+
+.opTextarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.actionRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.checkboxRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
 /* ─── List View ─── */
 
 .listView {
@@ -46,6 +130,7 @@
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 1;
+  line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
   flex: 1;
@@ -161,6 +246,10 @@
 /* ─── Mobile ─── */
 
 @media (max-width: 768px) {
+  .opsGrid {
+    grid-template-columns: 1fr;
+  }
+
   .taskTitleRow {
     flex-wrap: wrap;
   }
