@@ -13,6 +13,10 @@ import type {
   VerifyResultsView,
   AttemptInspectView,
   CheckpointCompletionResult,
+  RunMode,
+  RuntimeRole,
+  RuntimeListEntry,
+  RuntimeHealthStatus,
 } from '../types';
 
 const API_BASE_URL =
@@ -126,6 +130,7 @@ const mockProjects: Project[] = [
       args: [],
       env: {},
       timeout_ms: 600000,
+      max_parallel_tasks: 1,
     },
   },
   {
@@ -485,13 +490,32 @@ interface HivemindStore {
   }) => Promise<void>;
   setProjectRuntime: (payload: {
     project: string;
+    role?: RuntimeRole;
     adapter?: string;
     binary_path?: string;
     model?: string;
     args?: string[];
     env?: Record<string, string>;
     timeout_ms?: number;
+    max_parallel_tasks?: number;
   }) => Promise<void>;
+  setRuntimeDefaults: (payload: {
+    role?: RuntimeRole;
+    adapter?: string;
+    binary_path?: string;
+    model?: string;
+    args?: string[];
+    env?: Record<string, string>;
+    timeout_ms?: number;
+    max_parallel_tasks?: number;
+  }) => Promise<void>;
+  listRuntimes: () => Promise<RuntimeListEntry[]>;
+  runtimeHealth: (payload?: {
+    role?: RuntimeRole;
+    project?: string;
+    task?: string;
+    flow?: string;
+  }) => Promise<RuntimeHealthStatus>;
   attachProjectRepo: (payload: {
     project: string;
     path: string;
@@ -519,6 +543,18 @@ interface HivemindStore {
     mode?: 'clean' | 'continue';
   }) => Promise<void>;
   abortTask: (payload: { task_id: string; reason?: string }) => Promise<void>;
+  setTaskRuntime: (payload: {
+    task_id: string;
+    clear?: boolean;
+    role?: RuntimeRole;
+    adapter?: string;
+    binary_path?: string;
+    model?: string;
+    args?: string[];
+    env?: Record<string, string>;
+    timeout_ms?: number;
+  }) => Promise<void>;
+  setTaskRunMode: (payload: { task_id: string; mode: RunMode }) => Promise<void>;
 
   createGraph: (payload: {
     project: string;
@@ -542,13 +578,31 @@ interface HivemindStore {
 
   createFlow: (payload: { graph_id: string; name?: string }) => Promise<void>;
   startFlow: (payload: { flow_id: string }) => Promise<void>;
-  tickFlow: (payload: { flow_id: string; interactive?: boolean }) => Promise<void>;
+  tickFlow: (payload: {
+    flow_id: string;
+    interactive?: boolean;
+    max_parallel?: number;
+  }) => Promise<void>;
   pauseFlow: (payload: { flow_id: string }) => Promise<void>;
   resumeFlow: (payload: { flow_id: string }) => Promise<void>;
   abortFlow: (payload: {
     flow_id: string;
     reason?: string;
     force?: boolean;
+  }) => Promise<void>;
+  setFlowRunMode: (payload: { flow_id: string; mode: RunMode }) => Promise<void>;
+  addFlowDependency: (payload: { flow_id: string; depends_on_flow_id: string }) => Promise<void>;
+  setFlowRuntime: (payload: {
+    flow_id: string;
+    clear?: boolean;
+    role?: RuntimeRole;
+    adapter?: string;
+    binary_path?: string;
+    model?: string;
+    args?: string[];
+    env?: Record<string, string>;
+    timeout_ms?: number;
+    max_parallel_tasks?: number;
   }) => Promise<void>;
 
   verifyOverride: (payload: {
@@ -560,7 +614,13 @@ interface HivemindStore {
 
   prepareMerge: (payload: { flow_id: string; target?: string }) => Promise<void>;
   approveMerge: (payload: { flow_id: string }) => Promise<void>;
-  executeMerge: (payload: { flow_id: string }) => Promise<void>;
+  executeMerge: (payload: {
+    flow_id: string;
+    mode?: 'local' | 'pr';
+    monitor_ci?: boolean;
+    auto_merge?: boolean;
+    pull_after?: boolean;
+  }) => Promise<void>;
 
   completeCheckpoint: (payload: {
     attempt_id: string;
@@ -723,6 +783,20 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
     await apiPost('/api/projects/runtime', payload);
     await get().refreshFromApi();
   },
+  setRuntimeDefaults: async (payload) => {
+    await apiPost('/api/runtime/defaults', payload);
+    await get().refreshFromApi();
+  },
+  listRuntimes: async () => apiGet<RuntimeListEntry[]>('/api/runtimes'),
+  runtimeHealth: async (payload) =>
+    apiGet<RuntimeHealthStatus>(
+      `/api/runtimes/health${buildQuery({
+        role: payload?.role,
+        project: payload?.project,
+        task: payload?.task,
+        flow: payload?.flow,
+      })}`,
+    ),
   attachProjectRepo: async (payload) => {
     await apiPost('/api/projects/repos/attach', payload);
     await get().refreshFromApi();
@@ -759,6 +833,14 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
   },
   abortTask: async (payload) => {
     await apiPost('/api/tasks/abort', payload);
+    await get().refreshFromApi();
+  },
+  setTaskRuntime: async (payload) => {
+    await apiPost('/api/tasks/runtime', payload);
+    await get().refreshFromApi();
+  },
+  setTaskRunMode: async (payload) => {
+    await apiPost('/api/tasks/run-mode', payload);
     await get().refreshFromApi();
   },
 
@@ -801,6 +883,18 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
   },
   abortFlow: async (payload) => {
     await apiPost('/api/flows/abort', payload);
+    await get().refreshFromApi();
+  },
+  setFlowRunMode: async (payload) => {
+    await apiPost('/api/flows/run-mode', payload);
+    await get().refreshFromApi();
+  },
+  addFlowDependency: async (payload) => {
+    await apiPost('/api/flows/dependencies/add', payload);
+    await get().refreshFromApi();
+  },
+  setFlowRuntime: async (payload) => {
+    await apiPost('/api/flows/runtime', payload);
     await get().refreshFromApi();
   },
 

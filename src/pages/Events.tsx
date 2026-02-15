@@ -75,15 +75,36 @@ export function Events() {
   const { events, eventStreamPaused, toggleEventStream, inspectEvent } = useHivemindStore();
   const [selectedCategories, setSelectedCategories] = useState<Set<EventCategory>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<HivemindEvent | null>(null);
+  const [projectFilter, setProjectFilter] = useState('');
+  const [graphFilter, setGraphFilter] = useState('');
+  const [flowFilter, setFlowFilter] = useState('');
+  const [taskFilter, setTaskFilter] = useState('');
+  const [attemptFilter, setAttemptFilter] = useState('');
+  const [sinceFilter, setSinceFilter] = useState('');
+  const [untilFilter, setUntilFilter] = useState('');
   const [inspectedEventPayload, setInspectedEventPayload] = useState<Record<string, unknown> | null>(null);
   const [inspectBusy, setInspectBusy] = useState(false);
   const [inspectError, setInspectError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   // ─── Filtering ─────────────────────────────────────────────────────────
-  const filteredEvents = selectedCategories.size > 0
-    ? events.filter((e) => selectedCategories.has(e.category))
-    : events;
+  const filteredEvents = events.filter((event) => {
+    if (selectedCategories.size > 0 && !selectedCategories.has(event.category)) return false;
+    if (projectFilter.trim() && event.correlation.project_id !== projectFilter.trim()) return false;
+    if (graphFilter.trim() && event.correlation.graph_id !== graphFilter.trim()) return false;
+    if (flowFilter.trim() && event.correlation.flow_id !== flowFilter.trim()) return false;
+    if (taskFilter.trim() && event.correlation.task_id !== taskFilter.trim()) return false;
+    if (attemptFilter.trim() && event.correlation.attempt_id !== attemptFilter.trim()) return false;
+    if (sinceFilter) {
+      const sinceMs = Date.parse(sinceFilter);
+      if (!Number.isNaN(sinceMs) && Date.parse(event.timestamp) < sinceMs) return false;
+    }
+    if (untilFilter) {
+      const untilMs = Date.parse(untilFilter);
+      if (!Number.isNaN(untilMs) && Date.parse(event.timestamp) > untilMs) return false;
+    }
+    return true;
+  });
 
   const toggleCategory = (id: string) => {
     const category = id as EventCategory;
@@ -151,6 +172,15 @@ export function Events() {
         chips={filterChips}
         onToggle={toggleCategory}
       />
+      <div className={styles.detailGrid} style={{ marginBottom: 'var(--space-3)' }}>
+        <input className={styles.searchInput} placeholder="project id" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} />
+        <input className={styles.searchInput} placeholder="graph id" value={graphFilter} onChange={(e) => setGraphFilter(e.target.value)} />
+        <input className={styles.searchInput} placeholder="flow id" value={flowFilter} onChange={(e) => setFlowFilter(e.target.value)} />
+        <input className={styles.searchInput} placeholder="task id" value={taskFilter} onChange={(e) => setTaskFilter(e.target.value)} />
+        <input className={styles.searchInput} placeholder="attempt id" value={attemptFilter} onChange={(e) => setAttemptFilter(e.target.value)} />
+        <input className={styles.searchInput} type="datetime-local" value={sinceFilter} onChange={(e) => setSinceFilter(e.target.value)} />
+        <input className={styles.searchInput} type="datetime-local" value={untilFilter} onChange={(e) => setUntilFilter(e.target.value)} />
+      </div>
 
       <div className={styles.content}>
         {/* ─── Left: Event List ─────────────────────────────────────────── */}

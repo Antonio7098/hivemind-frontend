@@ -51,6 +51,10 @@ export function Merges() {
   } = useHivemindStore();
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [mergeMode, setMergeMode] = useState<'local' | 'pr'>('local');
+  const [monitorCi, setMonitorCi] = useState(false);
+  const [autoMerge, setAutoMerge] = useState(false);
+  const [pullAfter, setPullAfter] = useState(false);
 
   // Filter merges by project through their linked flows
   const projectMerges = useMemo(() => {
@@ -223,7 +227,13 @@ export function Merges() {
                               loading={busyAction === `Execute merge ${merge.flow_id}`}
                               onClick={() =>
                                 runMergeAction(`Execute merge ${merge.flow_id}`, async () => {
-                                  await executeMerge({ flow_id: merge.flow_id });
+                                  await executeMerge({
+                                    flow_id: merge.flow_id,
+                                    mode: mergeMode,
+                                    monitor_ci: monitorCi,
+                                    auto_merge: autoMerge,
+                                    pull_after: pullAfter,
+                                  });
                                 })
                               }
                             >
@@ -350,18 +360,64 @@ export function Merges() {
                         </Button>
                       )}
                       {selectedMerge.status === 'approved' && (
-                        <Button
-                          variant="primary"
-                          icon={<Play size={14} />}
-                          loading={busyAction === `Execute merge ${selectedMerge.flow_id}`}
-                          onClick={() =>
-                            runMergeAction(`Execute merge ${selectedMerge.flow_id}`, async () => {
-                              await executeMerge({ flow_id: selectedMerge.flow_id });
-                            })
-                          }
-                        >
-                          Execute Merge
-                        </Button>
+                        <div style={{ width: '100%' }}>
+                          <div style={{ marginBottom: 'var(--space-2)' }}>
+                            <select
+                              className={styles.select}
+                              value={mergeMode}
+                              onChange={(e) => setMergeMode(e.target.value as 'local' | 'pr')}
+                            >
+                              <option value="local">local merge</option>
+                              <option value="pr">pull request merge</option>
+                            </select>
+                          </div>
+                          {mergeMode === 'pr' && (
+                            <Stack direction="row" gap={2} style={{ marginBottom: 'var(--space-2)' }}>
+                              <label className={styles.checkboxRow}>
+                                <input
+                                  type="checkbox"
+                                  checked={monitorCi}
+                                  onChange={(e) => setMonitorCi(e.target.checked)}
+                                />
+                                monitor CI
+                              </label>
+                              <label className={styles.checkboxRow}>
+                                <input
+                                  type="checkbox"
+                                  checked={autoMerge}
+                                  onChange={(e) => setAutoMerge(e.target.checked)}
+                                />
+                                auto merge
+                              </label>
+                              <label className={styles.checkboxRow}>
+                                <input
+                                  type="checkbox"
+                                  checked={pullAfter}
+                                  onChange={(e) => setPullAfter(e.target.checked)}
+                                />
+                                pull after
+                              </label>
+                            </Stack>
+                          )}
+                          <Button
+                            variant="primary"
+                            icon={<Play size={14} />}
+                            loading={busyAction === `Execute merge ${selectedMerge.flow_id}`}
+                            onClick={() =>
+                              runMergeAction(`Execute merge ${selectedMerge.flow_id}`, async () => {
+                                await executeMerge({
+                                  flow_id: selectedMerge.flow_id,
+                                  mode: mergeMode,
+                                  monitor_ci: mergeMode === 'pr' ? monitorCi : false,
+                                  auto_merge: mergeMode === 'pr' ? autoMerge : false,
+                                  pull_after: pullAfter,
+                                });
+                              })
+                            }
+                          >
+                            Execute Merge
+                          </Button>
+                        </div>
                       )}
                     </Stack>
                   </>

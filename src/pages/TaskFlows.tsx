@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   GitBranch,
@@ -86,6 +86,9 @@ export function TaskFlows() {
     pauseFlow,
     resumeFlow,
     abortFlow,
+    setFlowRunMode,
+    addFlowDependency,
+    setFlowRuntime,
     cleanupWorktrees,
     prepareMerge,
     replayFlow,
@@ -103,7 +106,17 @@ export function TaskFlows() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [abortReason, setAbortReason] = useState('');
   const [abortForce, setAbortForce] = useState(false);
+  const [tickMaxParallel, setTickMaxParallel] = useState('');
   const [mergeTargetBranch, setMergeTargetBranch] = useState('');
+  const [dependsOnFlowId, setDependsOnFlowId] = useState('');
+  const [runtimeRole, setRuntimeRole] = useState<'worker' | 'validator'>('worker');
+  const [runtimeAdapter, setRuntimeAdapter] = useState('opencode');
+  const [runtimeBinary, setRuntimeBinary] = useState('opencode');
+  const [runtimeModel, setRuntimeModel] = useState('');
+  const [runtimeArgs, setRuntimeArgs] = useState('');
+  const [runtimeEnv, setRuntimeEnv] = useState('');
+  const [runtimeTimeout, setRuntimeTimeout] = useState('600000');
+  const [runtimeMaxParallel, setRuntimeMaxParallel] = useState('1');
   const [attemptId, setAttemptId] = useState('');
   const [checkpointId, setCheckpointId] = useState('');
   const [checkpointSummary, setCheckpointSummary] = useState('');
@@ -125,6 +138,35 @@ export function TaskFlows() {
     : null;
 
   const selectedGraph = selectedFlow ? graphMap[selectedFlow.graph_id] ?? null : null;
+
+  useEffect(() => {
+    if (!selectedFlow) return;
+    setRuntimeAdapter('opencode');
+    setRuntimeBinary('opencode');
+    setRuntimeModel('');
+    setRuntimeArgs('');
+    setRuntimeEnv('');
+    setRuntimeTimeout('600000');
+    setRuntimeMaxParallel('1');
+  }, [selectedFlow?.id, runtimeRole]);
+
+  const parseArgs = (raw: string): string[] =>
+    raw
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const parseEnv = (raw: string): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx <= 0) continue;
+      out[trimmed.slice(0, idx)] = trimmed.slice(idx + 1);
+    }
+    return out;
+  };
 
   const runFlowAction = async (label: string, action: () => Promise<void>) => {
     setBusyAction(label);
@@ -198,13 +240,26 @@ export function TaskFlows() {
                 onClick={() =>
                   runFlowAction('Tick flow', async () => {
                     if (!selectedFlow) return;
-                    await tickFlow({ flow_id: selectedFlow.id, interactive: false });
+                    await tickFlow({
+                      flow_id: selectedFlow.id,
+                      interactive: false,
+                      max_parallel: tickMaxParallel.trim()
+                        ? Math.max(Number(tickMaxParallel) || 1, 1)
+                        : undefined,
+                    });
                   })
                 }
               >
                 Tick
               </Button>
             </div>
+            <input
+              className={styles.opInput}
+              placeholder="Tick max parallel (optional)"
+              value={tickMaxParallel}
+              onChange={(e) => setTickMaxParallel(e.target.value)}
+              disabled={!selectedFlow}
+            />
 
             <div className={styles.actionRow}>
               <Button
@@ -236,6 +291,60 @@ export function TaskFlows() {
                 Resume
               </Button>
             </div>
+            <div className={styles.actionRow}>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={busyAction === 'Set flow auto mode'}
+                disabled={!selectedFlow}
+                onClick={() =>
+                  runFlowAction('Set flow auto mode', async () => {
+                    if (!selectedFlow) return;
+                    await setFlowRunMode({ flow_id: selectedFlow.id, mode: 'auto' });
+                  })
+                }
+              >
+                Auto mode
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={busyAction === 'Set flow manual mode'}
+                disabled={!selectedFlow}
+                onClick={() =>
+                  runFlowAction('Set flow manual mode', async () => {
+                    if (!selectedFlow) return;
+                    await setFlowRunMode({ flow_id: selectedFlow.id, mode: 'manual' });
+                  })
+                }
+              >
+                Manual mode
+              </Button>
+            </div>
+            <input
+              className={styles.opInput}
+              placeholder="Depends on flow ID"
+              value={dependsOnFlowId}
+              onChange={(e) => setDependsOnFlowId(e.target.value)}
+              disabled={!selectedFlow}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={busyAction === 'Add flow dependency'}
+              disabled={!selectedFlow || !dependsOnFlowId.trim()}
+              onClick={() =>
+                runFlowAction('Add flow dependency', async () => {
+                  if (!selectedFlow) return;
+                  await addFlowDependency({
+                    flow_id: selectedFlow.id,
+                    depends_on_flow_id: dependsOnFlowId.trim(),
+                  });
+                })
+              }
+            >
+              Add dependency
+            </Button>
           </section>
 
           <section className={styles.opsSection}>
@@ -314,6 +423,112 @@ export function TaskFlows() {
             >
               Prepare merge
             </Button>
+          </section>
+
+          <section className={styles.opsSection}>
+            <Text variant="overline" color="muted">Flow runtime defaults</Text>
+            <select
+              className={styles.opInput}
+              value={runtimeRole}
+              onChange={(e) => setRuntimeRole(e.target.value as 'worker' | 'validator')}
+              disabled={!selectedFlow}
+            >
+              <option value="worker">worker runtime</option>
+              <option value="validator">validator runtime</option>
+            </select>
+            <input
+              className={styles.opInput}
+              placeholder="Adapter"
+              value={runtimeAdapter}
+              onChange={(e) => setRuntimeAdapter(e.target.value)}
+              disabled={!selectedFlow}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Binary path"
+              value={runtimeBinary}
+              onChange={(e) => setRuntimeBinary(e.target.value)}
+              disabled={!selectedFlow}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Model (optional)"
+              value={runtimeModel}
+              onChange={(e) => setRuntimeModel(e.target.value)}
+              disabled={!selectedFlow}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Args (space separated)"
+              value={runtimeArgs}
+              onChange={(e) => setRuntimeArgs(e.target.value)}
+              disabled={!selectedFlow}
+            />
+            <textarea
+              className={styles.opTextarea}
+              placeholder="Env (KEY=VALUE per line)"
+              value={runtimeEnv}
+              onChange={(e) => setRuntimeEnv(e.target.value)}
+              disabled={!selectedFlow}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Timeout ms"
+              value={runtimeTimeout}
+              onChange={(e) => setRuntimeTimeout(e.target.value)}
+              disabled={!selectedFlow}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Max parallel tasks"
+              value={runtimeMaxParallel}
+              onChange={(e) => setRuntimeMaxParallel(e.target.value)}
+              disabled={!selectedFlow}
+            />
+            <div className={styles.actionRow}>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={busyAction === 'Save flow runtime'}
+                disabled={!selectedFlow}
+                onClick={() =>
+                  runFlowAction('Save flow runtime', async () => {
+                    if (!selectedFlow) return;
+                    await setFlowRuntime({
+                      flow_id: selectedFlow.id,
+                      role: runtimeRole,
+                      adapter: runtimeAdapter.trim() || undefined,
+                      binary_path: runtimeBinary.trim() || undefined,
+                      model: runtimeModel.trim() || undefined,
+                      args: parseArgs(runtimeArgs),
+                      env: parseEnv(runtimeEnv),
+                      timeout_ms: Number(runtimeTimeout) || 600000,
+                      max_parallel_tasks: Math.max(Number(runtimeMaxParallel) || 1, 1),
+                    });
+                  })
+                }
+              >
+                Save runtime
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                loading={busyAction === 'Clear flow runtime'}
+                disabled={!selectedFlow}
+                onClick={() =>
+                  runFlowAction('Clear flow runtime', async () => {
+                    if (!selectedFlow) return;
+                    await setFlowRuntime({
+                      flow_id: selectedFlow.id,
+                      role: runtimeRole,
+                      clear: true,
+                    });
+                  })
+                }
+              >
+                Clear runtime
+              </Button>
+            </div>
           </section>
 
           <section className={styles.opsSection}>
@@ -535,6 +750,14 @@ export function TaskFlows() {
                         <Hash size={12} />
                         <span>{total} tasks</span>
                       </div>
+                      <div className={styles.metaItem}>
+                        <span>mode: {flow.run_mode ?? 'manual'}</span>
+                      </div>
+                      {flow.depends_on_flows && flow.depends_on_flows.length > 0 && (
+                        <div className={styles.metaItem}>
+                          <span>deps: {flow.depends_on_flows.length}</span>
+                        </div>
+                      )}
                       <div className={styles.metaItem}>
                         <Clock size={12} />
                         <span>

@@ -149,6 +149,8 @@ export function Tasks() {
     completeTask,
     retryTask,
     abortTask,
+    setTaskRuntime,
+    setTaskRunMode,
     verifyRun,
     verifyOverride,
     refreshFromApi,
@@ -171,6 +173,13 @@ export function Tasks() {
   const [resetRetryCount, setResetRetryCount] = useState(false);
   const [overrideDecision, setOverrideDecision] = useState<'pass' | 'fail'>('pass');
   const [overrideReason, setOverrideReason] = useState('');
+  const [runtimeRole, setRuntimeRole] = useState<'worker' | 'validator'>('worker');
+  const [runtimeAdapter, setRuntimeAdapter] = useState('opencode');
+  const [runtimeBinary, setRuntimeBinary] = useState('opencode');
+  const [runtimeModel, setRuntimeModel] = useState('');
+  const [runtimeArgs, setRuntimeArgs] = useState('');
+  const [runtimeEnv, setRuntimeEnv] = useState('');
+  const [runtimeTimeout, setRuntimeTimeout] = useState('600000');
 
   const projectTasks = useMemo(() => {
     const filtered = selectedProjectId
@@ -198,7 +207,39 @@ export function Tasks() {
     if (!selectedTask) return;
     setEditTitle(selectedTask.title);
     setEditDescription(selectedTask.description ?? '');
-  }, [selectedTask]);
+    const selectedRuntime =
+      runtimeRole === 'validator'
+        ? selectedTask.runtime_overrides?.validator ?? null
+        : selectedTask.runtime_overrides?.worker ?? selectedTask.runtime_override ?? null;
+    setRuntimeAdapter(selectedRuntime?.adapter_name ?? 'opencode');
+    setRuntimeBinary(selectedRuntime?.binary_path ?? 'opencode');
+    setRuntimeModel(selectedRuntime?.model ?? '');
+    setRuntimeArgs(selectedRuntime?.args?.join(' ') ?? '');
+    setRuntimeEnv(
+      Object.entries(selectedRuntime?.env ?? {})
+        .map(([key, value]) => `${key}=${value}`)
+        .join('\n'),
+    );
+    setRuntimeTimeout(String(selectedRuntime?.timeout_ms ?? 600000));
+  }, [selectedTask, runtimeRole]);
+
+  const parseArgs = (raw: string): string[] =>
+    raw
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const parseEnv = (raw: string): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx <= 0) continue;
+      out[trimmed.slice(0, idx)] = trimmed.slice(idx + 1);
+    }
+    return out;
+  };
 
   const runTaskAction = async (label: string, action: () => Promise<void>) => {
     setBusyAction(label);
@@ -525,6 +566,135 @@ export function Tasks() {
               Submit override
             </Button>
           </section>
+
+          <section className={styles.opsSection}>
+            <h5>Run mode and runtime</h5>
+            <div className={styles.actionRow}>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!selectedTask}
+                loading={busyAction === 'Set task auto mode'}
+                onClick={() =>
+                  runTaskAction('Set task auto mode', async () => {
+                    if (!selectedTask) return;
+                    await setTaskRunMode({ task_id: selectedTask.id, mode: 'auto' });
+                  })
+                }
+              >
+                Auto mode
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!selectedTask}
+                loading={busyAction === 'Set task manual mode'}
+                onClick={() =>
+                  runTaskAction('Set task manual mode', async () => {
+                    if (!selectedTask) return;
+                    await setTaskRunMode({ task_id: selectedTask.id, mode: 'manual' });
+                  })
+                }
+              >
+                Manual mode
+              </Button>
+            </div>
+
+            <select
+              className={styles.opInput}
+              value={runtimeRole}
+              onChange={(e) => setRuntimeRole(e.target.value as 'worker' | 'validator')}
+              disabled={!selectedTask}
+            >
+              <option value="worker">worker runtime</option>
+              <option value="validator">validator runtime</option>
+            </select>
+            <input
+              className={styles.opInput}
+              placeholder="Adapter"
+              value={runtimeAdapter}
+              onChange={(e) => setRuntimeAdapter(e.target.value)}
+              disabled={!selectedTask}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Binary path"
+              value={runtimeBinary}
+              onChange={(e) => setRuntimeBinary(e.target.value)}
+              disabled={!selectedTask}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Model (optional)"
+              value={runtimeModel}
+              onChange={(e) => setRuntimeModel(e.target.value)}
+              disabled={!selectedTask}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Args (space separated)"
+              value={runtimeArgs}
+              onChange={(e) => setRuntimeArgs(e.target.value)}
+              disabled={!selectedTask}
+            />
+            <textarea
+              className={styles.opTextarea}
+              placeholder="Env (KEY=VALUE per line)"
+              value={runtimeEnv}
+              onChange={(e) => setRuntimeEnv(e.target.value)}
+              disabled={!selectedTask}
+            />
+            <input
+              className={styles.opInput}
+              placeholder="Timeout ms"
+              value={runtimeTimeout}
+              onChange={(e) => setRuntimeTimeout(e.target.value)}
+              disabled={!selectedTask}
+            />
+            <div className={styles.actionRow}>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!selectedTask}
+                loading={busyAction === 'Set task runtime override'}
+                onClick={() =>
+                  runTaskAction('Set task runtime override', async () => {
+                    if (!selectedTask) return;
+                    await setTaskRuntime({
+                      task_id: selectedTask.id,
+                      role: runtimeRole,
+                      adapter: runtimeAdapter.trim() || undefined,
+                      binary_path: runtimeBinary.trim() || undefined,
+                      model: runtimeModel.trim() || undefined,
+                      args: parseArgs(runtimeArgs),
+                      env: parseEnv(runtimeEnv),
+                      timeout_ms: Number(runtimeTimeout) || 600000,
+                    });
+                  })
+                }
+              >
+                Save override
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                disabled={!selectedTask}
+                loading={busyAction === 'Clear task runtime override'}
+                onClick={() =>
+                  runTaskAction('Clear task runtime override', async () => {
+                    if (!selectedTask) return;
+                    await setTaskRuntime({
+                      task_id: selectedTask.id,
+                      role: runtimeRole,
+                      clear: true,
+                    });
+                  })
+                }
+              >
+                Clear override
+              </Button>
+            </div>
+          </section>
         </div>
       </Card>
 
@@ -649,6 +819,7 @@ export function Tasks() {
                 items={[
                   { label: 'Task ID', value: selectedTask.id },
                   { label: 'State', value: selectedTask.state },
+                  { label: 'Run mode', value: selectedTask.run_mode ?? 'auto' },
                   { label: 'Project', value: getProjectName(selectedTask.project_id) },
                   { label: 'Project ID', value: selectedTask.project_id },
                   { label: 'Created', value: formatDateTime(selectedTask.created_at) },

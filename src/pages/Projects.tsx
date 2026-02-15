@@ -61,10 +61,12 @@ export function Projects() {
 
   const [runtimeAdapter, setRuntimeAdapter] = useState('opencode');
   const [runtimeBinary, setRuntimeBinary] = useState('opencode');
+  const [runtimeRole, setRuntimeRole] = useState<'worker' | 'validator'>('worker');
   const [runtimeModel, setRuntimeModel] = useState('');
   const [runtimeArgs, setRuntimeArgs] = useState('');
   const [runtimeEnv, setRuntimeEnv] = useState('');
   const [runtimeTimeout, setRuntimeTimeout] = useState('600000');
+  const [runtimeMaxParallel, setRuntimeMaxParallel] = useState('1');
 
   const [repoPath, setRepoPath] = useState('');
   const [repoName, setRepoName] = useState('');
@@ -77,19 +79,24 @@ export function Projects() {
     setEditName(selectedProject.name);
     setEditDescription(selectedProject.description ?? '');
 
-    setRuntimeAdapter(selectedProject.runtime?.adapter_name ?? 'opencode');
-    setRuntimeBinary(selectedProject.runtime?.binary_path ?? 'opencode');
-    setRuntimeModel(selectedProject.runtime?.model ?? '');
-    setRuntimeArgs(selectedProject.runtime?.args.join(' ') ?? '');
+    const selectedRuntime =
+      (runtimeRole === 'validator'
+        ? selectedProject.runtime_defaults?.validator
+        : selectedProject.runtime_defaults?.worker) ?? selectedProject.runtime;
+    setRuntimeAdapter(selectedRuntime?.adapter_name ?? 'opencode');
+    setRuntimeBinary(selectedRuntime?.binary_path ?? 'opencode');
+    setRuntimeModel(selectedRuntime?.model ?? '');
+    setRuntimeArgs(selectedRuntime?.args.join(' ') ?? '');
     setRuntimeEnv(
-      Object.entries(selectedProject.runtime?.env ?? {})
+      Object.entries(selectedRuntime?.env ?? {})
         .map(([key, value]) => `${key}=${value}`)
         .join('\n'),
     );
-    setRuntimeTimeout(String(selectedProject.runtime?.timeout_ms ?? 600000));
+    setRuntimeTimeout(String(selectedRuntime?.timeout_ms ?? 600000));
+    setRuntimeMaxParallel(String(selectedRuntime?.max_parallel_tasks ?? 1));
 
     setDetachRepoName(selectedProject.repositories[0]?.name ?? '');
-  }, [selectedProject]);
+  }, [selectedProject, runtimeRole]);
 
   const runAction = async (label: string, action: () => Promise<void>) => {
     setBusyAction(label);
@@ -237,6 +244,15 @@ export function Projects() {
               onChange={(e) => setRuntimeBinary(e.target.value)}
               disabled={!selectedProject}
             />
+            <select
+              className={styles.opInput}
+              value={runtimeRole}
+              onChange={(e) => setRuntimeRole(e.target.value as 'worker' | 'validator')}
+              disabled={!selectedProject}
+            >
+              <option value="worker">worker runtime</option>
+              <option value="validator">validator runtime</option>
+            </select>
             <input
               className={styles.opInput}
               placeholder="Model (optional)"
@@ -265,6 +281,13 @@ export function Projects() {
               onChange={(e) => setRuntimeTimeout(e.target.value)}
               disabled={!selectedProject}
             />
+            <input
+              className={styles.opInput}
+              placeholder="Max parallel tasks"
+              value={runtimeMaxParallel}
+              onChange={(e) => setRuntimeMaxParallel(e.target.value)}
+              disabled={!selectedProject}
+            />
             <Button
               variant="secondary"
               loading={busyAction === 'Configure runtime'}
@@ -274,12 +297,14 @@ export function Projects() {
                   if (!selectedProject) return;
                   await setProjectRuntime({
                     project: selectedProject.id,
+                    role: runtimeRole,
                     adapter: runtimeAdapter.trim() || undefined,
                     binary_path: runtimeBinary.trim() || undefined,
                     model: runtimeModel.trim() || undefined,
                     args: parseArgs(runtimeArgs),
                     env: parseEnv(runtimeEnv),
                     timeout_ms: Number(runtimeTimeout) || 600000,
+                    max_parallel_tasks: Math.max(Number(runtimeMaxParallel) || 1, 1),
                   });
                 })
               }

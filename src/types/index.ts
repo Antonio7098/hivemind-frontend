@@ -56,7 +56,31 @@ export interface ProjectRuntimeConfig {
   args: string[];
   env: Record<string, string>;
   timeout_ms: number;
+  max_parallel_tasks: number;
 }
+
+export type RuntimeRole = 'worker' | 'validator';
+
+export interface RuntimeRoleDefaults {
+  worker?: ProjectRuntimeConfig | null;
+  validator?: ProjectRuntimeConfig | null;
+}
+
+export interface TaskRuntimeConfig {
+  adapter_name: string;
+  binary_path: string;
+  model?: string | null;
+  args: string[];
+  env: Record<string, string>;
+  timeout_ms: number;
+}
+
+export interface TaskRuntimeRoleOverrides {
+  worker?: TaskRuntimeConfig | null;
+  validator?: TaskRuntimeConfig | null;
+}
+
+export type RunMode = 'manual' | 'auto';
 
 export interface Repository {
   name: string;
@@ -72,6 +96,7 @@ export interface Project {
   updated_at: string;
   repositories: Repository[];
   runtime: ProjectRuntimeConfig | null;
+  runtime_defaults?: RuntimeRoleDefaults;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,6 +111,9 @@ export interface Task {
   title: string;
   description: string | null;
   scope: Scope | null;
+  runtime_override?: TaskRuntimeConfig | null;
+  runtime_overrides?: TaskRuntimeRoleOverrides;
+  run_mode?: RunMode;
   state: TaskState;
   created_at: string;
   updated_at: string;
@@ -169,6 +197,9 @@ export interface TaskFlow {
   id: string;
   graph_id: string;
   project_id: string;
+  base_revision?: string | null;
+  run_mode?: RunMode;
+  depends_on_flows?: string[];
   state: FlowState;
   task_executions: Record<string, TaskExecution>;
   created_at: string;
@@ -323,6 +354,21 @@ export interface Runtime {
   type: string;
   status: 'healthy' | 'degraded' | 'offline';
   version?: string;
+}
+
+export interface RuntimeListEntry {
+  adapter_name: string;
+  default_binary: string;
+  available: boolean;
+  opencode_compatible: boolean;
+}
+
+export interface RuntimeHealthStatus {
+  adapter_name: string;
+  binary_path: string;
+  healthy: boolean;
+  target?: string | null;
+  details?: string | null;
 }
 
 export interface WorktreeStatus {
