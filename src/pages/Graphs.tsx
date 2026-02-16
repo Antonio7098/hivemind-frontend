@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
+import { useParams } from 'react-router-dom';
 import {
   Network,
   Plus,
@@ -57,6 +58,7 @@ export function Graphs() {
     flows,
     tasks,
     selectedProjectId,
+    setSelectedProject,
     getProject,
     createGraph,
     addGraphDependency,
@@ -67,6 +69,7 @@ export function Graphs() {
     addNotification,
     apiError,
   } = useHivemindStore();
+  const { id: routeGraphId } = useParams<{ id?: string }>();
   const [selectedGraphId, setSelectedGraphId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
@@ -102,6 +105,19 @@ export function Graphs() {
     setDepToTask((prev) => (selectedGraphTaskIds.includes(prev) ? prev : selectedGraphTaskIds[0]));
     setCheckTaskId((prev) => (selectedGraphTaskIds.includes(prev) ? prev : selectedGraphTaskIds[0]));
   }, [selectedGraph, selectedGraphTaskIds]);
+
+  useEffect(() => {
+    if (!routeGraphId) return;
+    setSelectedGraphId(routeGraphId);
+  }, [routeGraphId]);
+
+  useEffect(() => {
+    if (!routeGraphId) return;
+    const graphFromRoute = graphs.find((graph) => graph.id === routeGraphId);
+    if (graphFromRoute) {
+      setSelectedProject(graphFromRoute.project_id);
+    }
+  }, [routeGraphId, graphs, setSelectedProject]);
 
   const runGraphAction = async (label: string, action: () => Promise<void>) => {
     setBusyAction(label);

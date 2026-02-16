@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useParams } from 'react-router-dom';
 import {
   ListTodo,
   Plus,
@@ -21,10 +22,19 @@ import { KeyValueGrid } from '../components/composites/KeyValueGrid';
 import { EmptyState } from '../components/composites/EmptyState';
 import { ListItem } from '../components/composites/ListItem';
 import { Dot } from '../components/primitives/Dot';
-import type { Task, TaskState, Scope } from '../types';
+import { Stack } from '../components/primitives/Stack';
+import { Text } from '../components/primitives/Text';
+import type { Task, TaskState, Scope, HivemindEvent } from '../types';
 import styles from './Tasks.module.css';
 
 type FilterState = TaskState | 'all';
+
+interface CheckpointInfo {
+  checkpointId: string;
+  status: 'completed' | 'pending';
+  commitHash: string | null;
+  completedAt: string | null;
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -42,6 +52,75 @@ function formatDateTime(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function computeTaskCheckpoints(events: HivemindEvent[], taskId: string): {
+  checkpoints: CheckpointInfo[];
+  completedCount: number;
+  totalExpected: number | null;
+  completedAll: boolean;
+} {
+  const taskEvents = events.filter((event) => event.correlation.task_id === taskId);
+  const byCheckpoint = new Map<string, CheckpointInfo>();
+  let totalExpected: number | null = null;
+  let completedAll = false;
+
+  for (const event of taskEvents) {
+    const payload = event.payload as Record<string, unknown>;
+    const payloadTotal = typeof payload.total === 'number' ? payload.total : null;
+    if (payloadTotal !== null) {
+      totalExpected = totalExpected === null ? payloadTotal : Math.max(totalExpected, payloadTotal);
+    }
+    if (payload.all_completed === true || payload.all_checkpoints_completed === true) {
+      completedAll = true;
+    }
+    if (event.type === 'CheckpointCommitCreated') {
+      const checkpointId = typeof payload.checkpoint_id === 'string'
+        ? payload.checkpoint_id
+        : typeof payload.checkpoint === 'string'
+          ? payload.checkpoint
+          : `checkpoint-${byCheckpoint.size + 1}`;
+      const commitHash = typeof payload.commit_hash === 'string'
+        ? payload.commit_hash
+        : typeof payload.commit === 'string'
+          ? payload.commit
+          : null;
+      byCheckpoint.set(checkpointId, {
+        checkpointId,
+        status: 'completed',
+        commitHash,
+        completedAt: event.timestamp,
+      });
+    }
+  }
+
+  const completedCount = byCheckpoint.size;
+
+  if (totalExpected !== null && totalExpected > completedCount && !completedAll) {
+    for (let i = completedCount; i < totalExpected; i++) {
+      const pendingId = `pending-${i + 1}`;
+      byCheckpoint.set(pendingId, {
+        checkpointId: `Checkpoint ${i + 1}`,
+        status: 'pending',
+        commitHash: null,
+        completedAt: null,
+      });
+    }
+  }
+
+  const checkpoints = Array.from(byCheckpoint.values())
+    .sort((a, b) => {
+      if (a.status === 'pending' && b.status === 'completed') return 1;
+      if (a.status === 'completed' && b.status === 'pending') return -1;
+      return (a.completedAt ?? '') < (b.completedAt ?? '') ? 1 : -1;
+    });
+
+  return {
+    checkpoints,
+    completedCount,
+    totalExpected,
+    completedAll,
+  };
 }
 
 function ScopeDetails({ scope }: { scope: Scope }) {
@@ -142,6 +221,7 @@ export function Tasks() {
     tasks,
     projects,
     selectedProjectId,
+    setSelectedProject,
     createTask,
     updateTask,
     closeTask,
@@ -157,6 +237,7 @@ export function Tasks() {
     addNotification,
     apiError,
   } = useHivemindStore();
+  const { id: routeTaskId } = useParams<{ id?: string }>();
   const [filter, setFilter] = useState<FilterState>('all');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
@@ -194,6 +275,19 @@ export function Tasks() {
     () => (selectedTaskId ? tasks.find((t) => t.id === selectedTaskId) ?? null : null),
     [tasks, selectedTaskId],
   );
+
+  useEffect(() => {
+    if (!routeTaskId) return;
+    setSelectedTaskId(routeTaskId);
+  }, [routeTaskId]);
+
+  useEffect(() => {
+    if (!routeTaskId) return;
+    const taskFromRoute = tasks.find((task) => task.id === routeTaskId);
+    if (taskFromRoute) {
+      setSelectedProject(taskFromRoute.project_id);
+    }
+  }, [routeTaskId, tasks, setSelectedProject]);
 
   useEffect(() => {
     if (selectedProjectId) {
@@ -834,9 +928,60 @@ export function Tasks() {
                 <ScopeDetails scope={selectedTask.scope} />
               </div>
             )}
+
+            <div className={styles.detailSection}>
+              <h4>Checkpoints</h4>
+              <CheckpointSection taskId={selectedTask.id} />
+            </div>
           </>
         )}
       </DetailPanel>
     </div>
+  );
+}
+
+function CheckpointSection({ taskId }: { taskId: string }) {
+  const { events } = useHivemindStore();
+  const checkpointData = useMemo(
+    () => computeTaskCheckpoints(events, taskId),
+    [events, taskId],
+  );
+
+  if (checkpointData.checkpoints.length === 0) {
+    return <Text variant="body-sm" color="tertiary">No checkpoint records for this task.</Text>;
+  }
+
+  return (
+    <>
+      <div className={styles.checkpointMeta}>
+        <Badge size="sm" variant={checkpointData.completedAll ? 'success' : 'warning'}>
+          {checkpointData.completedAll ? 'all completed' : 'in progress'}
+        </Badge>
+        <Badge size="sm" variant="default">
+          {checkpointData.completedCount}
+          {checkpointData.totalExpected ? ` / ${checkpointData.totalExpected}` : ''} completed
+        </Badge>
+      </div>
+      <div className={styles.checkpointList}>
+        {checkpointData.checkpoints.map((checkpoint) => (
+          <div key={checkpoint.checkpointId} className={styles.checkpointRow}>
+            <Stack gap={1}>
+              <Text variant="body-sm">{checkpoint.checkpointId}</Text>
+              {checkpoint.commitHash && (
+                <Text variant="mono-sm" color="muted">{checkpoint.commitHash}</Text>
+              )}
+            </Stack>
+            <Stack gap={1} align="end">
+              <Badge size="sm" variant={checkpoint.status === 'completed' ? 'success' : 'default'}>
+                {checkpoint.status}
+              </Badge>
+              {checkpoint.completedAt && (
+                <Text variant="caption" color="muted">{formatDateTime(checkpoint.completedAt)}</Text>
+              )}
+            </Stack>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }

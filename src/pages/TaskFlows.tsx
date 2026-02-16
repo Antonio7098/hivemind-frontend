@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useParams } from 'react-router-dom';
 import {
   GitBranch,
   Play,
@@ -81,6 +82,7 @@ export function TaskFlows() {
     flows,
     graphs,
     selectedProjectId,
+    setSelectedProject,
     startFlow,
     tickFlow,
     pauseFlow,
@@ -102,6 +104,7 @@ export function TaskFlows() {
     addNotification,
     apiError,
   } = useHivemindStore();
+  const { id: routeFlowId } = useParams<{ id?: string }>();
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [abortReason, setAbortReason] = useState('');
@@ -138,6 +141,19 @@ export function TaskFlows() {
     : null;
 
   const selectedGraph = selectedFlow ? graphMap[selectedFlow.graph_id] ?? null : null;
+
+  useEffect(() => {
+    if (!routeFlowId) return;
+    setSelectedFlowId(routeFlowId);
+  }, [routeFlowId]);
+
+  useEffect(() => {
+    if (!routeFlowId) return;
+    const flowFromRoute = flows.find((flow) => flow.id === routeFlowId);
+    if (flowFromRoute) {
+      setSelectedProject(flowFromRoute.project_id);
+    }
+  }, [routeFlowId, flows, setSelectedProject]);
 
   useEffect(() => {
     if (!selectedFlow) return;

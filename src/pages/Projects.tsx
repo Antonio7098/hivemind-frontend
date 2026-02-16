@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import {
   FolderKanban,
   Plus,
@@ -34,6 +35,7 @@ const fadeInUp = {
 };
 
 export function Projects() {
+  const navigate = useNavigate();
   const {
     projects,
     tasks,
@@ -413,7 +415,10 @@ export function Projects() {
                   hoverable
                   padding="none"
                   className={`${styles.projectCard} ${isActive ? styles.active : ''}`}
-                  onClick={() => setSelectedProject(project.id)}
+                  onClick={() => {
+                    setSelectedProject(project.id);
+                    navigate(`/projects/${project.id}`);
+                  }}
                 >
                   <div className={styles.cardContent}>
                     {/* Header: icon + menu */}

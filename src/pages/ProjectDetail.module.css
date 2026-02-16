@@ -1,0 +1,274 @@
+.page {
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.tabs {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.tabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.tabBtn:hover {
+  color: var(--text-secondary);
+}
+
+.activeTab {
+  background: var(--surface-4);
+  color: var(--accent-500);
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.metricCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.kanbanGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.kanbanColumn {
+  min-height: 420px;
+}
+
+.kanbanDropTarget {
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 1px var(--accent-500) inset;
+}
+
+.kanbanHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kanbanList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.kanbanCard {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  padding: var(--space-3);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+
+.kanbanCard:hover {
+  border-color: var(--accent-500);
+  background: var(--surface-1);
+}
+
+.sectionTitle {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.runtimeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.runtimeItem {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-0);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.listRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  padding: var(--space-3);
+}
+
+.clickable {
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+
+.clickable:hover {
+  border-color: var(--accent-500);
+  background: var(--surface-1);
+}
+
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.panelSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.payload {
+  margin: 0;
+  background: var(--void);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  max-height: 220px;
+  overflow: auto;
+}
+
+.runtimeProjectionSection {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.runtimeProjectionLayout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-3);
+}
+
+.runtimeStream {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.runtimeHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.runtimeSelect {
+  min-width: 260px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 0.75rem;
+}
+
+.runtimeMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.checkpointStatus {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+@media (max-width: 1200px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kanbanGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .runtimeProjectionLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .runtimeGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .kanbanGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .listRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useParams } from 'react-router-dom';
 import {
   GitMerge,
   CheckCircle2,
@@ -43,18 +44,29 @@ export function Merges() {
     flows,
     graphs,
     selectedProjectId,
+    setSelectedProject,
     approveMerge,
     executeMerge,
     refreshFromApi,
     addNotification,
     apiError,
   } = useHivemindStore();
+  const { id: routeMergeFlowId } = useParams<{ id?: string }>();
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [mergeMode, setMergeMode] = useState<'local' | 'pr'>('local');
   const [monitorCi, setMonitorCi] = useState(false);
   const [autoMerge, setAutoMerge] = useState(false);
   const [pullAfter, setPullAfter] = useState(false);
+
+  useEffect(() => {
+    if (!routeMergeFlowId) return;
+    setSelectedFlowId(routeMergeFlowId);
+    const flowFromRoute = flows.find((flow) => flow.id === routeMergeFlowId);
+    if (flowFromRoute) {
+      setSelectedProject(flowFromRoute.project_id);
+    }
+  }, [routeMergeFlowId, flows, setSelectedProject]);
 
   // Filter merges by project through their linked flows
   const projectMerges = useMemo(() => {
