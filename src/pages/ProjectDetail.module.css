@@ -272,3 +272,85 @@
     align-items: flex-start;
   }
 }
+
+
+/* Additional styles for tabs and content */
+.projectTabs {
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.dashboardTab, .tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.metricsGrid {
+  margin-bottom: var(--space-4);
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.governanceCard {
+  background: var(--surface-0);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.constitutionMeta {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.codeBlock {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--void);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+}
+
+.notepad {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--surface-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  border: 1px solid var(--border-subtle);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  text-align: center;
+  color: var(--text-muted);
+}
