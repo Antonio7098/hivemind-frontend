@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -13,6 +13,13 @@ import {
   Activity,
   LayoutDashboard,
   KanbanSquare,
+  Shield,
+  Sparkles,
+  RefreshCw,
+  CheckCircle,
+  FileText,
+  BookOpen,
+  Code,
 } from 'lucide-react';
 import { PageHeader } from '../components/composites/PageHeader';
 import { Button } from '../components/Button';
@@ -33,10 +40,15 @@ import type {
   TaskExecState,
   TaskFlow,
   TaskGraph,
+  GovernanceConstitutionResult,
+  GovernanceDocumentSummary,
+  GovernanceNotepadResult,
+  GlobalSkillSummary,
+  GlobalTemplateSummary,
 } from '../types';
 import styles from './ProjectDetail.module.css';
 
-type ProjectTab = 'dashboard' | 'kanban';
+type ProjectTab = 'overview' | 'governance' | 'kanban';
 
 type PanelSelection =
   | { type: 'task'; value: Task }
@@ -211,9 +223,23 @@ export function ProjectDetail() {
     approveMerge,
     executeMerge,
     addNotification,
+    fetchConstitution,
+    checkConstitution,
+    fetchGovernanceDocuments,
+    fetchProjectNotepad,
+    fetchGlobalNotepad,
+    fetchGlobalSkills,
+    fetchGlobalTemplates,
+    refreshGraphSnapshot,
   } = useHivemindStore();
   const [panelSelection, setPanelSelection] = useState<PanelSelection | null>(null);
-  const [activeTab, setActiveTab] = useState<ProjectTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<ProjectTab>('overview');
+  const [constitution, setConstitution] = useState<GovernanceConstitutionResult | null>(null);
+  const [documents, setDocuments] = useState<GovernanceDocumentSummary[]>([]);
+  const [projectNotepad, setProjectNotepad] = useState<GovernanceNotepadResult | null>(null);
+  const [globalNotepad, setGlobalNotepad] = useState<GovernanceNotepadResult | null>(null);
+  const [skills, setSkills] = useState<GlobalSkillSummary[]>([]);
+  const [templates, setTemplates] = useState<GlobalTemplateSummary[]>([]);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<KanbanColumnId | null>(null);
@@ -228,39 +254,14 @@ export function ProjectDetail() {
     if (project) setSelectedProject(project.id);
   }, [project, setSelectedProject]);
 
-  if (!project) {
-    return (
-      <div className={styles.page}>
-        <PageHeader
-          title="Project Details"
-          subtitle="Project not found"
-          actions={(
-            <Button
-              variant="secondary"
-              icon={<ArrowLeft size={16} />}
-              onClick={() => navigate('/projects')}
-            >
-              Back to Projects
-            </Button>
-          )}
-        />
-        <Card variant="outlined">
-          <EmptyState
-            icon={<FolderKanban size={40} />}
-            title="Project not found"
-            description="The requested project ID is missing from current state."
-          />
-        </Card>
-      </div>
-    );
-  }
 
-  const projectTasks = tasks.filter((task) => task.project_id === project.id);
-  const projectGraphs = graphs.filter((graph) => graph.project_id === project.id);
-  const projectFlows = flows.filter((flow) => flow.project_id === project.id);
+
+  const projectTasks = tasks.filter((task) => task.project_id === project?.id);
+  const projectGraphs = graphs.filter((graph) => graph.project_id === project?.id);
+  const projectFlows = flows.filter((flow) => flow.project_id === project?.id);
   const flowIds = new Set(projectFlows.map((flow) => flow.id));
   const projectMerges = mergeStates.filter((merge) => flowIds.has(merge.flow_id));
-  const projectAllEvents = events.filter((event) => event.correlation.project_id === project.id);
+  const projectAllEvents = events.filter((event) => event.correlation.project_id === project?.id);
   const projectEvents = projectAllEvents.slice(0, 20);
 
   const openTasks = projectTasks.filter((task) => task.state === 'open').length;
@@ -457,6 +458,131 @@ export function ProjectDetail() {
     }
   };
 
+
+  const loadProjectGovernance = useCallback(async () => {
+    if (!project) return;
+    /* loading */
+    try {
+      const [constitutionData, docsData, notepadData] = await Promise.all([
+        fetchConstitution(project.name).catch(() => null),
+        fetchGovernanceDocuments(project.name).catch(() => []),
+        fetchProjectNotepad(project.name).catch(() => null),
+      ]);
+      setConstitution(constitutionData);
+      setDocuments(docsData);
+      setProjectNotepad(notepadData);
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Failed to load project governance',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      /* loading */
+    }
+  }, [project, fetchConstitution, fetchGovernanceDocuments, fetchProjectNotepad, addNotification]);
+
+  const loadGlobalGovernance = useCallback(async () => {
+    /* loading */
+    try {
+      const [notepadData, skillsData, templatesData] = await Promise.all([
+        fetchGlobalNotepad().catch(() => null),
+        fetchGlobalSkills().catch(() => []),
+        fetchGlobalTemplates().catch(() => []),
+      ]);
+      setGlobalNotepad(notepadData);
+      setSkills(skillsData);
+      setTemplates(templatesData);
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Failed to load global governance',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      /* loading */
+    }
+  }, [fetchGlobalNotepad, fetchGlobalSkills, fetchGlobalTemplates, addNotification]);
+
+  useEffect(() => {
+    void loadProjectGovernance();
+  }, [loadProjectGovernance]);
+
+  useEffect(() => {
+    void loadGlobalGovernance();
+  }, [loadGlobalGovernance]);
+
+  const handleCheckConstitution = async () => {
+    if (!project) return;
+    const label = 'Validate constitution';
+    setBusyAction(label);
+    try {
+      const result = await checkConstitution({ project: project.name });
+      if (result.valid) {
+        addNotification({ type: 'success', title: 'Constitution valid', message: 'All checks passed' });
+      } else {
+        addNotification({
+          type: 'warning',
+          title: 'Constitution issues detected',
+          message: result.errors.join(', '),
+        });
+      }
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Validation failed',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleRefreshSnapshot = async () => {
+    if (!project) return;
+    const label = 'Refresh graph snapshot';
+    setBusyAction(label);
+    try {
+      await refreshGraphSnapshot({ project: project.name, trigger: 'project-detail' });
+      addNotification({ type: 'success', title: 'Snapshot refreshed' });
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Snapshot refresh failed',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  if (!project) {
+    return (
+      <div className={styles.page}>
+        <PageHeader
+          title="Project Details"
+          subtitle="Project not found"
+          actions={(
+            <Button
+              variant="secondary"
+              icon={<ArrowLeft size={16} />}
+              onClick={() => navigate('/projects')}
+            >
+              Back to Projects
+            </Button>
+          )}
+        />
+        <Card variant="outlined">
+          <EmptyState
+            icon={<FolderKanban size={40} />}
+            title="Project not found"
+            description="The requested project ID is missing from current state."
+          />
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       <PageHeader
@@ -466,11 +592,18 @@ export function ProjectDetail() {
           <Stack direction="row" gap={2}>
             <div className={styles.tabs}>
               <button
-                className={`${styles.tabBtn} ${activeTab === 'dashboard' ? styles.activeTab : ''}`}
-                onClick={() => setActiveTab('dashboard')}
+                className={`${styles.tabBtn} ${activeTab === 'overview' ? styles.activeTab : ''}`}
+                onClick={() => setActiveTab('overview')}
               >
                 <LayoutDashboard size={14} />
-                <span>Dashboard</span>
+                <span>Overview</span>
+              </button>
+              <button
+                className={`${styles.tabBtn} ${activeTab === 'governance' ? styles.activeTab : ''}`}
+                onClick={() => setActiveTab('governance')}
+              >
+                <Shield size={14} />
+                <span>Governance</span>
               </button>
               <button
                 className={`${styles.tabBtn} ${activeTab === 'kanban' ? styles.activeTab : ''}`}
@@ -491,7 +624,7 @@ export function ProjectDetail() {
         )}
       />
 
-      {activeTab === 'dashboard' && (
+      {activeTab === 'overview' && (
         <>
           <div className={styles.metrics}>
             <Card variant="outlined" className={styles.metricCard}>
@@ -787,6 +920,217 @@ export function ProjectDetail() {
             </Card>
           ))}
         </div>
+      )}
+
+      {activeTab === 'governance' && (
+        <Card variant="default" className={styles.governanceCard}>
+          <TabPanel defaultTab="project" variant="pills">
+            <TabList>
+              <Tab id="project" icon={<Shield size={14} />}>
+                Project
+                {project && <Badge variant="default" size="sm">{project.name}</Badge>}
+              </Tab>
+              <Tab id="global" icon={<Sparkles size={14} />}>
+                Global
+              </Tab>
+            </TabList>
+
+            <TabContent id="project">
+              <Stack direction="column" gap={4} className={styles.tabContent}>
+                <Expandable
+                  title="Constitution"
+                  subtitle={constitution?.initialized ? 'Initialized' : 'Not initialized'}
+                  icon={<Shield size={16} />}
+                  badge={
+                    constitution?.initialized ? (
+                      <Badge variant="success" size="sm">Active</Badge>
+                    ) : (
+                      <Badge variant="warning" size="sm">Not Set</Badge>
+                    )
+                  }
+                  defaultOpen
+                  variant="card"
+                >
+                  <Stack direction="column" gap={3}>
+                    {constitution?.initialized ? (
+                      <>
+                        <div className={styles.constitutionMeta}>
+                          <div className={styles.metaItem}>
+                            <Text variant="caption" color="muted">Schema Version</Text>
+                            <Text variant="body">{constitution.schema_version || 'N/A'}</Text>
+                          </div>
+                          {constitution.validated_at && (
+                            <div className={styles.metaItem}>
+                              <Text variant="caption" color="muted">Last Validated</Text>
+                              <Text variant="body">
+                                {new Date(constitution.validated_at).toLocaleString()}
+                              </Text>
+                            </div>
+                          )}
+                        </div>
+                        {constitution.content && (
+                          <pre className={styles.codeBlock}>{constitution.content}</pre>
+                        )}
+                        <div className={styles.actions}>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            icon={<CheckCircle size={12} />}
+                            loading={busyAction === 'Validate constitution'}
+                            onClick={handleCheckConstitution}
+                          >
+                            Validate
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <Text variant="body" color="muted">
+                        No constitution configured for this project.
+                      </Text>
+                    )}
+                  </Stack>
+                </Expandable>
+
+                <Expandable
+                  title="Documents"
+                  subtitle={`${documents.length} document(s)`}
+                  icon={<FileText size={16} />}
+                  badge={<Badge variant="default" size="sm">{documents.length}</Badge>}
+                  variant="card"
+                >
+                  {documents.length === 0 ? (
+                    <DataListEmpty
+                      icon={<FileText size={32} strokeWidth={1} />}
+                      title="No Documents"
+                      description="Create governance documents to define project rules"
+                    />
+                  ) : (
+                    <DataList>
+                      {documents.map(doc => (
+                        <DataListItem
+                          key={doc.document_id}
+                          icon={<FileText size={16} />}
+                          title={doc.title}
+                          subtitle={`${doc.revision_count} revision(s)`}
+                          value={new Date(doc.updated_at).toLocaleDateString()}
+                        />
+                      ))}
+                    </DataList>
+                  )}
+                </Expandable>
+
+                <Expandable
+                  title="Project Notepad"
+                  subtitle="Scratchpad for project notes"
+                  icon={<BookOpen size={16} />}
+                  variant="card"
+                >
+                  {projectNotepad?.content ? (
+                    <pre className={styles.notepad}>{projectNotepad.content}</pre>
+                  ) : (
+                    <Text variant="body" color="muted">No notepad content.</Text>
+                  )}
+                </Expandable>
+
+                <Expandable
+                  title="Code Graph"
+                  subtitle="UCP-based code structure snapshot"
+                  icon={<Layers size={16} />}
+                  variant="card"
+                >
+                  <Stack direction="column" gap={3}>
+                    <Text variant="body" color="secondary">
+                      Refresh the code graph snapshot to update the project's understanding of the codebase structure.
+                    </Text>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      icon={<RefreshCw size={12} />}
+                      loading={busyAction === 'Refresh graph snapshot'}
+                      onClick={handleRefreshSnapshot}
+                    >
+                      Refresh Snapshot
+                    </Button>
+                  </Stack>
+                </Expandable>
+              </Stack>
+            </TabContent>
+
+            <TabContent id="global">
+              <Stack direction="column" gap={4} className={styles.tabContent}>
+                <Expandable
+                  title="Skills"
+                  subtitle={`${skills.length} skill(s) defined`}
+                  icon={<Code size={16} />}
+                  badge={<Badge variant="default" size="sm">{skills.length}</Badge>}
+                  defaultOpen
+                  variant="card"
+                >
+                  {skills.length === 0 ? (
+                    <DataListEmpty
+                      icon={<Code size={32} strokeWidth={1} />}
+                      title="No Skills"
+                      description="Define global skills to share across projects"
+                    />
+                  ) : (
+                    <DataList>
+                      {skills.map(skill => (
+                        <DataListItem
+                          key={skill.skill_id}
+                          icon={<Code size={16} />}
+                          title={skill.name}
+                          subtitle={skill.description || skill.skill_id}
+                          value={new Date(skill.updated_at).toLocaleDateString()}
+                        />
+                      ))}
+                    </DataList>
+                  )}
+                </Expandable>
+
+                <Expandable
+                  title="Templates"
+                  subtitle={`${templates.length} template(s) defined`}
+                  icon={<Layers size={16} />}
+                  badge={<Badge variant="default" size="sm">{templates.length}</Badge>}
+                  variant="card"
+                >
+                  {templates.length === 0 ? (
+                    <DataListEmpty
+                      icon={<Layers size={32} strokeWidth={1} />}
+                      title="No Templates"
+                      description="Define global templates for consistent agent prompts"
+                    />
+                  ) : (
+                    <DataList>
+                      {templates.map(template => (
+                        <DataListItem
+                          key={template.template_id}
+                          icon={<Layers size={16} />}
+                          title={template.template_id}
+                          subtitle={`System: ${template.system_prompt_id} • ${template.skill_ids.length} skill(s)`}
+                          value={new Date(template.updated_at).toLocaleDateString()}
+                        />
+                      ))}
+                    </DataList>
+                  )}
+                </Expandable>
+
+                <Expandable
+                  title="Global Notepad"
+                  subtitle="Shared scratchpad across all projects"
+                  icon={<BookOpen size={16} />}
+                  variant="card"
+                >
+                  {globalNotepad?.content ? (
+                    <pre className={styles.notepad}>{globalNotepad.content}</pre>
+                  ) : (
+                    <Text variant="body" color="muted">No global notepad content.</Text>
+                  )}
+                </Expandable>
+              </Stack>
+            </TabContent>
+          </TabPanel>
+        </Card>
       )}
 
       <Card variant="outlined" className={styles.runtimeProjectionSection}>
