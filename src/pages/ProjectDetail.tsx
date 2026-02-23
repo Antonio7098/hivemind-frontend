@@ -7,10 +7,8 @@ import {
   GitFork,
   ListTodo,
   Play,
-  Clock,
   Layers,
   GitMerge,
-  Activity,
   LayoutDashboard,
   KanbanSquare,
   Shield,
@@ -29,8 +27,15 @@ import { KeyValueGrid } from '../components/composites/KeyValueGrid';
 import { StatusIndicator } from '../components/StatusIndicator';
 import { EmptyState } from '../components/composites/EmptyState';
 import { DetailPanel } from '../components/composites/DetailPanel';
+import { Grid } from '../components/primitives/Grid';
 import { Stack } from '../components/primitives/Stack';
 import { Text } from '../components/primitives/Text';
+import { MetricCard } from '../components/composites/MetricCard';
+import { ListItem } from '../components/composites/ListItem';
+import { CardHeader } from '../components/composites/CardHeader';
+import { TabPanel, TabList, Tab, TabContent } from '../components/composites/TabPanel';
+import { Expandable } from '../components/composites/Expandable';
+import { DataList, DataListItem, DataListEmpty } from '../components/composites/DataList';
 import { useHivemindStore } from '../stores/hivemindStore';
 import type {
   HivemindEvent,
@@ -262,12 +267,8 @@ export function ProjectDetail() {
   const flowIds = new Set(projectFlows.map((flow) => flow.id));
   const projectMerges = mergeStates.filter((merge) => flowIds.has(merge.flow_id));
   const projectAllEvents = events.filter((event) => event.correlation.project_id === project?.id);
-  const projectEvents = projectAllEvents.slice(0, 20);
 
   const openTasks = projectTasks.filter((task) => task.state === 'open').length;
-  const runningFlows = projectFlows.filter((flow) => flow.state === 'running').length;
-  const pausedFlows = projectFlows.filter((flow) => flow.state === 'paused').length;
-  const completedFlows = projectFlows.filter((flow) => flow.state === 'completed' || flow.state === 'merged').length;
 
   const latestExecutionByTask = useMemo(() => {
     const map = new Map<string, { state: TaskExecState; flowId: string; updatedAt: string }>();
@@ -556,6 +557,106 @@ export function ProjectDetail() {
     }
   };
 
+
+
+
+  const loadProjectGovernance = useCallback(async () => {
+    if (!project) return;
+    setProjectGovLoading(true);
+    try {
+      const [constitutionData, docsData, notepadData] = await Promise.all([
+        fetchConstitution(project.id).catch(() => null),
+        fetchGovernanceDocuments(project.id).catch(() => []),
+        fetchProjectNotepad(project.id).catch(() => null),
+      ]);
+      setConstitution(constitutionData);
+      setDocuments(docsData);
+      setProjectNotepad(notepadData);
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Failed to load project governance',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setProjectGovLoading(false);
+    }
+  }, [project, fetchConstitution, fetchGovernanceDocuments, fetchProjectNotepad, addNotification]);
+
+  const loadGlobalGovernance = useCallback(async () => {
+    setGlobalGovLoading(true);
+    try {
+      const [notepadData, skillsData, templatesData] = await Promise.all([
+        fetchGlobalNotepad().catch(() => null),
+        fetchGlobalSkills().catch(() => []),
+        fetchGlobalTemplates().catch(() => []),
+      ]);
+      setGlobalNotepad(notepadData);
+      setSkills(skillsData);
+      setTemplates(templatesData);
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Failed to load global governance',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setGlobalGovLoading(false);
+    }
+  }, [fetchGlobalNotepad, fetchGlobalSkills, fetchGlobalTemplates, addNotification]);
+
+  useEffect(() => {
+    void loadProjectGovernance();
+  }, [loadProjectGovernance]);
+
+  useEffect(() => {
+    void loadGlobalGovernance();
+  }, [loadGlobalGovernance]);
+
+  const handleCheckConstitution = async () => {
+    if (!project) return;
+    const label = 'Validate constitution';
+    setBusyAction(label);
+    try {
+      const result = await checkConstitution({ project: project.id });
+      if (result.valid) {
+        addNotification({ type: 'success', title: 'Constitution valid', message: 'All checks passed' });
+      } else {
+        addNotification({
+          type: 'warning',
+          title: 'Constitution issues detected',
+          message: result.errors.join(', '),
+        });
+      }
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Validation failed',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleRefreshSnapshot = async () => {
+    if (!project) return;
+    const label = 'Refresh graph snapshot';
+    setBusyAction(label);
+    try {
+      await refreshGraphSnapshot({ project: project.id, trigger: 'project-detail' });
+      addNotification({ type: 'success', title: 'Snapshot refreshed' });
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Snapshot refresh failed',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   if (!project) {
     return (
       <div className={styles.page}>
@@ -583,6 +684,132 @@ export function ProjectDetail() {
     );
   }
 
+  const renderOverview = () => (
+    <div className={styles.overviewTab}>
+      <Grid columns={4} gap={4} className={styles.metricsGrid}>
+        <MetricCard icon={<Play size={24} />} value={projectFlows.filter((flow) => flow.state === 'running').length} label="Active Flows" color="var(--state-running)" />
+        <MetricCard icon={<ListTodo size={24} />} value={openTasks} label="Open Tasks" color="var(--accent-400)" />
+        <MetricCard icon={<Layers size={24} />} value={projectGraphs.length} label="Graphs" color="var(--state-verifying)" />
+        <MetricCard icon={<GitMerge size={24} />} value={projectMerges.filter((merge) => merge.status !== 'completed').length} label="Pending Merges" color="var(--state-pending)" />
+      </Grid>
+
+      <Grid columns={2} gap={4} className={styles.contentGrid}>
+        <Card
+          variant="default"
+          padding="none"
+          header={<CardHeader icon={<GitFork size={18} />} title="Flows" trailing={<Badge variant="default" size="sm">{projectFlows.length}</Badge>} />}
+        >
+          <div className={styles.flowList}>
+            {projectFlows.length === 0 ? (
+              <EmptyState
+                icon={<GitFork size={32} strokeWidth={1} />}
+                title="No flows yet"
+                description="Create a graph and start a flow to begin execution"
+              />
+            ) : (
+              projectFlows.map((flow) => {
+                const graph = getGraphForFlow(flow);
+                const execs = Object.values(flow.task_executions);
+                const successCount = execs.filter((exec) => exec.state === 'success').length;
+                return (
+                  <ListItem
+                    key={flow.id}
+                    icon={<StatusIndicator status={flow.state} size="md" />}
+                    title={graph?.name ?? flow.id}
+                    subtitle={`${successCount}/${execs.length} tasks complete`}
+                    trailing={<Badge variant="default" size="sm">{flow.state}</Badge>}
+                    onClick={() => setPanelSelection({ type: 'flow', value: flow })}
+                  />
+                );
+              })
+            )}
+          </div>
+        </Card>
+
+        <Card
+          variant="default"
+          padding="none"
+          header={<CardHeader icon={<Layers size={18} />} title="Task Graphs" trailing={<Badge variant="default" size="sm">{projectGraphs.length}</Badge>} />}
+        >
+          <div className={styles.graphList}>
+            {projectGraphs.length === 0 ? (
+              <EmptyState
+                icon={<Layers size={32} strokeWidth={1} />}
+                title="No graphs yet"
+                description="Create a graph to organize your tasks"
+              />
+            ) : (
+              projectGraphs.map((graph) => (
+                <ListItem
+                  key={graph.id}
+                  icon={<Layers size={18} />}
+                  title={graph.name}
+                  subtitle={Object.keys(graph.tasks).length + ' tasks'}
+                  trailing={<Badge variant="default" size="sm">{graph.state}</Badge>}
+                  onClick={() => setPanelSelection({ type: 'graph', value: graph })}
+                />
+              ))
+            )}
+          </div>
+        </Card>
+
+        <Card
+          variant="default"
+          padding="none"
+          header={<CardHeader icon={<ListTodo size={18} />} title="Tasks" trailing={<Badge variant="default" size="sm">{projectTasks.length}</Badge>} />}
+        >
+          <div className={styles.taskList}>
+            {projectTasks.length === 0 ? (
+              <EmptyState
+                icon={<ListTodo size={32} strokeWidth={1} />}
+                title="No tasks yet"
+                description="Create a task to start working on your project"
+              />
+            ) : (
+              projectTasks.map((task) => (
+                <ListItem
+                  key={task.id}
+                  icon={<StatusIndicator status={task.state} size="md" />}
+                  title={task.title}
+                  subtitle={task.id}
+                  trailing={<Badge variant="default" size="sm">{task.state}</Badge>}
+                  onClick={() => setPanelSelection({ type: 'task', value: task })}
+                />
+              ))
+            )}
+          </div>
+        </Card>
+
+        <Card
+          variant="default"
+          padding="none"
+          header={<CardHeader icon={<GitMerge size={18} />} title="Merges" trailing={<Badge variant="default" size="sm">{projectMerges.length}</Badge>} />}
+        >
+          <div className={styles.mergeList}>
+            {projectMerges.length === 0 ? (
+              <EmptyState
+                icon={<GitMerge size={32} strokeWidth={1} />}
+                title="No merges yet"
+                description="Create a merge to combine your changes"
+              />
+            ) : (
+              projectMerges.map((merge) => (
+                <ListItem
+                  key={merge.flow_id}
+                  icon={<StatusIndicator status={merge.status} size="md" />}
+                  title={merge.flow_id}
+                  subtitle={merge.target_branch}
+                  trailing={<Badge variant="default" size="sm">{merge.status}</Badge>}
+                  onClick={() => setPanelSelection({ type: 'merge', value: merge })}
+                />
+              ))
+            )}
+          </div>
+        </Card>
+      </Grid>
+    </div>
+  );
+
   return (
     <div className={styles.page}>
       <PageHeader
@@ -590,29 +817,6 @@ export function ProjectDetail() {
         subtitle={project.description ?? 'No project description set'}
         actions={(
           <Stack direction="row" gap={2}>
-            <div className={styles.tabs}>
-              <button
-                className={`${styles.tabBtn} ${activeTab === 'overview' ? styles.activeTab : ''}`}
-                onClick={() => setActiveTab('overview')}
-              >
-                <LayoutDashboard size={14} />
-                <span>Overview</span>
-              </button>
-              <button
-                className={`${styles.tabBtn} ${activeTab === 'governance' ? styles.activeTab : ''}`}
-                onClick={() => setActiveTab('governance')}
-              >
-                <Shield size={14} />
-                <span>Governance</span>
-              </button>
-              <button
-                className={`${styles.tabBtn} ${activeTab === 'kanban' ? styles.activeTab : ''}`}
-                onClick={() => setActiveTab('kanban')}
-              >
-                <KanbanSquare size={14} />
-                <span>Kanban</span>
-              </button>
-            </div>
             <Button
               variant="secondary"
               icon={<ArrowLeft size={16} />}
@@ -624,241 +828,59 @@ export function ProjectDetail() {
         )}
       />
 
-      {activeTab === 'overview' && (
-        <>
-          <div className={styles.metrics}>
-            <Card variant="outlined" className={styles.metricCard}>
-              <Stack direction="row" gap={2} align="center">
-                <ListTodo size={16} />
-                <Text variant="caption" color="muted">Open Tasks</Text>
-              </Stack>
-              <Text variant="h4">{openTasks}</Text>
-            </Card>
-            <Card variant="outlined" className={styles.metricCard}>
-              <Stack direction="row" gap={2} align="center">
-                <Play size={16} />
-                <Text variant="caption" color="muted">Running / Paused</Text>
-              </Stack>
-              <Text variant="h4">{runningFlows} / {pausedFlows}</Text>
-            </Card>
-            <Card variant="outlined" className={styles.metricCard}>
-              <Stack direction="row" gap={2} align="center">
-                <GitMerge size={16} />
-                <Text variant="caption" color="muted">Merges</Text>
-              </Stack>
-              <Text variant="h4">{projectMerges.length}</Text>
-            </Card>
-            <Card variant="outlined" className={styles.metricCard}>
-              <Stack direction="row" gap={2} align="center">
-                <Activity size={16} />
-                <Text variant="caption" color="muted">Recent Events</Text>
-              </Stack>
-              <Text variant="h4">{projectEvents.length}</Text>
-            </Card>
+      <TabPanel value={activeTab} onTabChange={(tabId) => setActiveTab(tabId as ProjectTab)} variant="pills" className={styles.projectTabs}>
+        <TabList>
+          <Tab id="overview" icon={<LayoutDashboard size={14} />}>Overview</Tab>
+          <Tab id="governance" icon={<Shield size={14} />}>Governance</Tab>
+          <Tab id="kanban" icon={<KanbanSquare size={14} />}>Kanban</Tab>
+        </TabList>
+
+        <TabContent id="overview">
+          <div className={styles.dashboardTab}>
+            {renderOverview()}
+            <div className={styles.layout}>
+              <Card variant="outlined" className={styles.section}>
+                <div className={styles.sectionTitle}>Repositories</div>
+                {project?.repositories.length === 0 ? (
+                  <Text variant="body-sm" color="tertiary">No repositories attached.</Text>
+                ) : (
+                  <div className={styles.list}>
+                    {project?.repositories.map((repo) => (
+                      <div key={repo.path} className={styles.listRow}>
+                        <Stack gap={1}>
+                          <Stack direction="row" gap={2} align="center">
+                            <GitBranch size={14} />
+                            <Text variant="body-sm">{repo.name}</Text>
+                          </Stack>
+                          <Text variant="mono-sm" color="muted">{repo.path}</Text>
+                        </Stack>
+                        <Badge variant={repo.access_mode === 'readwrite' ? 'amber' : 'default'} size="sm">
+                          {repo.access_mode}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+              <Card variant="outlined" className={styles.section}>
+                <div className={styles.sectionTitle}>Runtime Configuration</div>
+                <div className={styles.runtimeGrid}>
+                  <div className={styles.runtimeItem}>
+                    <Text variant="overline" color="muted">Worker</Text>
+                    <Text variant="body-sm">{formatRuntime(project?.runtime_defaults?.worker ?? project?.runtime)}</Text>
+                  </div>
+                  <div className={styles.runtimeItem}>
+                    <Text variant="overline" color="muted">Validator</Text>
+                    <Text variant="body-sm">{formatRuntime(project?.runtime_defaults?.validator)}</Text>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
+        </TabContent>
 
-          <div className={styles.layout}>
-            <Card variant="outlined" className={styles.section}>
-              <div className={styles.sectionTitle}>Overview</div>
-              <KeyValueGrid
-                items={[
-                  { label: 'Project ID', value: project.id },
-                  { label: 'Created', value: formatDateTime(project.created_at) },
-                  { label: 'Updated', value: formatDateTime(project.updated_at) },
-                  { label: 'Repositories', value: project.repositories.length },
-                  { label: 'Tasks', value: projectTasks.length },
-                  { label: 'Graphs', value: projectGraphs.length },
-                  { label: 'Flows', value: projectFlows.length },
-                  { label: 'Completed Flows', value: completedFlows },
-                ]}
-              />
-            </Card>
+        <TabContent id="kanban">
 
-            <Card variant="outlined" className={styles.section}>
-              <div className={styles.sectionTitle}>Runtime Configuration</div>
-              <div className={styles.runtimeGrid}>
-                <div className={styles.runtimeItem}>
-                  <Text variant="overline" color="muted">Worker</Text>
-                  <Text variant="body-sm">{formatRuntime(project.runtime_defaults?.worker ?? project.runtime)}</Text>
-                </div>
-                <div className={styles.runtimeItem}>
-                  <Text variant="overline" color="muted">Validator</Text>
-                  <Text variant="body-sm">{formatRuntime(project.runtime_defaults?.validator)}</Text>
-                </div>
-              </div>
-            </Card>
-
-            <Card variant="outlined" className={styles.section}>
-              <div className={styles.sectionTitle}>Repositories</div>
-              {project.repositories.length === 0 ? (
-                <Text variant="body-sm" color="tertiary">No repositories attached.</Text>
-              ) : (
-                <div className={styles.list}>
-                  {project.repositories.map((repo) => (
-                    <div key={repo.path} className={styles.listRow}>
-                      <Stack gap={1}>
-                        <Stack direction="row" gap={2} align="center">
-                          <GitBranch size={14} />
-                          <Text variant="body-sm">{repo.name}</Text>
-                        </Stack>
-                        <Text variant="mono-sm" color="muted">{repo.path}</Text>
-                      </Stack>
-                      <Badge variant={repo.access_mode === 'readwrite' ? 'amber' : 'default'} size="sm">
-                        {repo.access_mode}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card variant="outlined" className={styles.section}>
-              <div className={styles.sectionTitle}>Tasks</div>
-              {projectTasks.length === 0 ? (
-                <Text variant="body-sm" color="tertiary">No tasks found for this project.</Text>
-              ) : (
-                <div className={styles.list}>
-                  {projectTasks.slice(0, 30).map((task) => (
-                    <button
-                      key={task.id}
-                      className={`${styles.listRow} ${styles.clickable}`}
-                      onClick={() => setPanelSelection({ type: 'task', value: task })}
-                    >
-                      <Stack gap={1}>
-                        <Text variant="body-sm">{task.title}</Text>
-                        <Text variant="mono-sm" color="muted">{task.id}</Text>
-                      </Stack>
-                      <Stack direction="row" gap={2} align="center">
-                        {task.scope && <Badge variant="warning" size="sm">scoped</Badge>}
-                        <StatusIndicator status={task.state} showLabel />
-                      </Stack>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card variant="outlined" className={styles.section}>
-              <div className={styles.sectionTitle}>Task Graphs</div>
-              {projectGraphs.length === 0 ? (
-                <Text variant="body-sm" color="tertiary">No graphs created yet.</Text>
-              ) : (
-                <div className={styles.list}>
-                  {projectGraphs.map((graph) => (
-                    <button
-                      key={graph.id}
-                      className={`${styles.listRow} ${styles.clickable}`}
-                      onClick={() => setPanelSelection({ type: 'graph', value: graph })}
-                    >
-                      <Stack gap={1}>
-                        <Stack direction="row" gap={2} align="center">
-                          <Layers size={14} />
-                          <Text variant="body-sm">{graph.name}</Text>
-                        </Stack>
-                        <Text variant="mono-sm" color="muted">{graph.id}</Text>
-                      </Stack>
-                      <Stack direction="row" gap={2} align="center">
-                        <Badge variant="default" size="sm">{Object.keys(graph.tasks).length} tasks</Badge>
-                        <StatusIndicator status={graph.state} showLabel />
-                      </Stack>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card variant="outlined" className={styles.section}>
-              <div className={styles.sectionTitle}>Flows</div>
-              {projectFlows.length === 0 ? (
-                <Text variant="body-sm" color="tertiary">No flows started yet.</Text>
-              ) : (
-                <div className={styles.list}>
-                  {projectFlows.map((flow) => (
-                    <button
-                      key={flow.id}
-                      className={`${styles.listRow} ${styles.clickable}`}
-                      onClick={() => setPanelSelection({ type: 'flow', value: flow })}
-                    >
-                      <Stack gap={1}>
-                        <Stack direction="row" gap={2} align="center">
-                          <GitFork size={14} />
-                          <Text variant="body-sm">{flow.id}</Text>
-                        </Stack>
-                        <Stack direction="row" gap={2} align="center">
-                          <Badge size="sm" variant="default">mode: {flow.run_mode ?? 'manual'}</Badge>
-                          <Badge size="sm" variant="info">progress: {flowProgress(flow)}</Badge>
-                        </Stack>
-                      </Stack>
-                      <StatusIndicator status={flow.state} showLabel />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card variant="outlined" className={styles.section}>
-              <div className={styles.sectionTitle}>Merges</div>
-              {projectMerges.length === 0 ? (
-                <Text variant="body-sm" color="tertiary">No merge states for this project.</Text>
-              ) : (
-                <div className={styles.list}>
-                  {projectMerges.map((merge) => (
-                    <button
-                      key={merge.flow_id}
-                      className={`${styles.listRow} ${styles.clickable}`}
-                      onClick={() => setPanelSelection({ type: 'merge', value: merge })}
-                    >
-                      <Stack gap={1}>
-                        <Text variant="body-sm">{merge.flow_id}</Text>
-                        <Stack direction="row" gap={2} align="center">
-                          <Badge size="sm" variant="default">target: {merge.target_branch ?? 'main'}</Badge>
-                          {merge.conflicts.length > 0 && (
-                            <Badge size="sm" variant="error">{merge.conflicts.length} conflicts</Badge>
-                          )}
-                        </Stack>
-                      </Stack>
-                      <StatusIndicator status={merge.status} showLabel />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card variant="outlined" className={`${styles.section} ${styles.fullWidth}`}>
-              <div className={styles.sectionTitle}>Recent Events</div>
-              {projectEvents.length === 0 ? (
-                <Text variant="body-sm" color="tertiary">No events for this project yet.</Text>
-              ) : (
-                <div className={styles.list}>
-                  {projectEvents.map((event) => (
-                    <button
-                      key={event.id}
-                      className={`${styles.listRow} ${styles.clickable}`}
-                      onClick={() => setPanelSelection({ type: 'event', value: event })}
-                    >
-                      <Stack gap={1}>
-                        <Stack direction="row" gap={2} align="center">
-                          <Text variant="body-sm">{event.type}</Text>
-                          <Badge size="sm" variant="default">{event.category}</Badge>
-                        </Stack>
-                        <Text variant="mono-sm" color="muted">
-                          {event.id} · flow={event.correlation.flow_id ?? '-'} · task={event.correlation.task_id ?? '-'}
-                        </Text>
-                      </Stack>
-                      <Stack direction="row" gap={2} align="center">
-                        <Clock size={12} />
-                        <Text variant="caption" color="muted">{formatDateTime(event.timestamp)}</Text>
-                      </Stack>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </div>
-        </>
-      )}
-
-      {activeTab === 'kanban' && (
         <div className={styles.kanbanGrid}>
           {KANBAN_COLUMNS.map((column) => (
             <Card
@@ -920,7 +942,219 @@ export function ProjectDetail() {
             </Card>
           ))}
         </div>
-      )}
+        </TabContent>
+
+        <TabContent id="governance">
+          <Card variant="default" className={styles.governanceCard}>
+            <TabPanel defaultTab="project" variant="pills">
+              <TabList>
+                <Tab id="project" icon={<Shield size={14} />}>
+                  Project
+                  {project && <Badge variant="default" size="sm">{project.name}</Badge>}
+                </Tab>
+                <Tab id="global" icon={<Sparkles size={14} />}>
+                  Global
+                </Tab>
+              </TabList>
+
+              <TabContent id="project">
+                <Stack direction="column" gap={4} className={styles.tabContent}>
+                  <Expandable
+                    title="Constitution"
+                    subtitle={constitution?.initialized ? 'Initialized' : 'Not initialized'}
+                    icon={<Shield size={16} />}
+                    badge={
+                      constitution?.initialized ? (
+                        <Badge variant="success" size="sm">Active</Badge>
+                      ) : (
+                        <Badge variant="warning" size="sm">Not Set</Badge>
+                      )
+                    }
+                    defaultOpen
+                    variant="card"
+                  >
+                    <Stack direction="column" gap={3}>
+                      {constitution?.initialized ? (
+                        <>
+                          <div className={styles.constitutionMeta}>
+                            <div className={styles.metaItem}>
+                              <Text variant="caption" color="muted">Schema Version</Text>
+                              <Text variant="body">{constitution.schema_version || 'N/A'}</Text>
+                            </div>
+                            {constitution.validated_at && (
+                              <div className={styles.metaItem}>
+                                <Text variant="caption" color="muted">Last Validated</Text>
+                                <Text variant="body">
+                                  {new Date(constitution.validated_at).toLocaleString()}
+                                </Text>
+                              </div>
+                            )}
+                          </div>
+                          {constitution.content && (
+                            <pre className={styles.codeBlock}>{constitution.content}</pre>
+                          )}
+                          <div className={styles.actions}>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              icon={<CheckCircle size={12} />}
+                              loading={busyAction === 'Validate constitution'}
+                              onClick={handleCheckConstitution}
+                            >
+                              Validate
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <Text variant="body" color="muted">
+                          No constitution configured for this project.
+                        </Text>
+                      )}
+                    </Stack>
+                  </Expandable>
+
+                  <Expandable
+                    title="Documents"
+                    subtitle={`${documents.length} document(s)`}
+                    icon={<FileText size={16} />}
+                    badge={<Badge variant="default" size="sm">{documents.length}</Badge>}
+                    variant="card"
+                  >
+                    {documents.length === 0 ? (
+                      <DataListEmpty
+                        icon={<FileText size={32} strokeWidth={1} />}
+                        title="No Documents"
+                        description="Create governance documents to define project rules"
+                      />
+                    ) : (
+                      <DataList>
+                        {documents.map(doc => (
+                          <DataListItem
+                            key={doc.document_id}
+                            icon={<FileText size={16} />}
+                            title={doc.title}
+                            subtitle={`${doc.revision_count} revision(s)`}
+                            value={new Date(doc.updated_at).toLocaleDateString()}
+                          />
+                        ))}
+                      </DataList>
+                    )}
+                  </Expandable>
+
+                  <Expandable
+                    title="Project Notepad"
+                    subtitle="Scratchpad for project notes"
+                    icon={<BookOpen size={16} />}
+                    variant="card"
+                  >
+                    {projectNotepad?.content ? (
+                      <pre className={styles.notepad}>{projectNotepad.content}</pre>
+                    ) : (
+                      <Text variant="body" color="muted">No notepad content.</Text>
+                    )}
+                  </Expandable>
+
+                  <Expandable
+                    title="Code Graph"
+                    subtitle="UCP-based code structure snapshot"
+                    icon={<Layers size={16} />}
+                    variant="card"
+                  >
+                    <Stack direction="column" gap={3}>
+                      <Text variant="body" color="secondary">
+                        Refresh the code graph snapshot to update the project's understanding of the codebase structure.
+                      </Text>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        icon={<RefreshCw size={12} />}
+                        loading={busyAction === 'Refresh graph snapshot'}
+                        onClick={handleRefreshSnapshot}
+                      >
+                        Refresh Snapshot
+                      </Button>
+                    </Stack>
+                  </Expandable>
+                </Stack>
+              </TabContent>
+
+              <TabContent id="global">
+                <Stack direction="column" gap={4} className={styles.tabContent}>
+                  <Expandable
+                    title="Skills"
+                    subtitle={`${skills.length} skill(s) defined`}
+                    icon={<Code size={16} />}
+                    badge={<Badge variant="default" size="sm">{skills.length}</Badge>}
+                    defaultOpen
+                    variant="card"
+                  >
+                    {skills.length === 0 ? (
+                      <DataListEmpty
+                        icon={<Code size={32} strokeWidth={1} />}
+                        title="No Skills"
+                        description="Define global skills to share across projects"
+                      />
+                    ) : (
+                      <DataList>
+                        {skills.map(skill => (
+                          <DataListItem
+                            key={skill.skill_id}
+                            icon={<Code size={16} />}
+                            title={skill.name}
+                            subtitle={skill.description || skill.skill_id}
+                            value={new Date(skill.updated_at).toLocaleDateString()}
+                          />
+                        ))}
+                      </DataList>
+                    )}
+                  </Expandable>
+
+                  <Expandable
+                    title="Templates"
+                    subtitle={`${templates.length} template(s) defined`}
+                    icon={<Layers size={16} />}
+                    badge={<Badge variant="default" size="sm">{templates.length}</Badge>}
+                    variant="card"
+                  >
+                    {templates.length === 0 ? (
+                      <DataListEmpty
+                        icon={<Layers size={32} strokeWidth={1} />}
+                        title="No Templates"
+                        description="Define global templates for consistent agent prompts"
+                      />
+                    ) : (
+                      <DataList>
+                        {templates.map(template => (
+                          <DataListItem
+                            key={template.template_id}
+                            icon={<Layers size={16} />}
+                            title={template.template_id}
+                            subtitle={`System: ${template.system_prompt_id} • ${template.skill_ids.length} skill(s)`}
+                            value={new Date(template.updated_at).toLocaleDateString()}
+                          />
+                        ))}
+                      </DataList>
+                    )}
+                  </Expandable>
+
+                  <Expandable
+                    title="Global Notepad"
+                    subtitle="Shared scratchpad across all projects"
+                    icon={<BookOpen size={16} />}
+                    variant="card"
+                  >
+                    {globalNotepad?.content ? (
+                      <pre className={styles.notepad}>{globalNotepad.content}</pre>
+                    ) : (
+                      <Text variant="body" color="muted">No global notepad content.</Text>
+                    )}
+                  </Expandable>
+                </Stack>
+              </TabContent>
+            </TabPanel>
+          </Card>
+        </TabContent>
+      </TabPanel>
 
       {activeTab === 'governance' && (
         <Card variant="default" className={styles.governanceCard}>
