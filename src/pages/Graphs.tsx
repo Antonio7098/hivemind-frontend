@@ -67,11 +67,12 @@ export function Graphs() {
     createFlow,
     refreshFromApi,
     addNotification,
-    apiError,
   } = useHivemindStore();
   const { id: routeGraphId } = useParams<{ id?: string }>();
   const [selectedGraphId, setSelectedGraphId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<'details' | 'operations'>('details');
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const [newGraphName, setNewGraphName] = useState('');
   const [newGraphTaskIds, setNewGraphTaskIds] = useState('');
@@ -158,215 +159,24 @@ export function Graphs() {
         title="Task Graphs"
         subtitle="Plan and structure task dependency DAGs"
         actions={
-          <Button
-            variant="secondary"
-            loading={busyAction === 'Refresh state'}
-            onClick={() => runGraphAction('Refresh state', async () => refreshFromApi())}
-          >
-            Refresh
-          </Button>
-        }
-      />
-
-      <Card variant="outlined" className={styles.opsPanel}>
-        <div className={styles.opsHeaderRow}>
-          <Text variant="h4">Graph operations</Text>
-          {apiError && <Text variant="caption" color="warning">{apiError}</Text>}
-        </div>
-
-        <div className={styles.opsGrid}>
-          <section className={styles.opsSection}>
-            <Text variant="overline" color="muted">Create graph</Text>
-            <input
-              className={styles.opInput}
-              placeholder="Graph name"
-              value={newGraphName}
-              onChange={(e) => setNewGraphName(e.target.value)}
-            />
-            <textarea
-              className={styles.opTextarea}
-              placeholder="Task IDs (comma separated)"
-              value={newGraphTaskIds}
-              onChange={(e) => setNewGraphTaskIds(e.target.value)}
-            />
-            {projectTasks.length > 0 && (
-              <Text variant="caption" color="muted">
-                Project task ids: {projectTasks.map((task) => task.id).join(', ')}
-              </Text>
-            )}
+          <>
             <Button
               variant="primary"
               icon={<Plus size={14} />}
-              loading={busyAction === 'Create graph'}
-              disabled={!selectedProjectId || !newGraphName.trim()}
-              onClick={() =>
-                runGraphAction('Create graph', async () => {
-                  if (!selectedProjectId) return;
-                  await createGraph({
-                    project: selectedProjectId,
-                    name: newGraphName.trim(),
-                    from_tasks: parseIds(newGraphTaskIds),
-                  });
-                  setNewGraphName('');
-                  setNewGraphTaskIds('');
-                })
-              }
+              onClick={() => setShowCreateModal(true)}
             >
-              Create graph
+              Create Graph
             </Button>
-          </section>
-
-          <section className={styles.opsSection}>
-            <Text variant="overline" color="muted">Dependencies</Text>
-            <select
-              className={styles.opInput}
-              value={depFromTask}
-              onChange={(e) => setDepFromTask(e.target.value)}
-              disabled={!selectedGraph || selectedGraphTaskIds.length === 0}
-            >
-              {selectedGraphTaskIds.map((taskId) => (
-                <option key={`from-${taskId}`} value={taskId}>{taskId}</option>
-              ))}
-            </select>
-            <select
-              className={styles.opInput}
-              value={depToTask}
-              onChange={(e) => setDepToTask(e.target.value)}
-              disabled={!selectedGraph || selectedGraphTaskIds.length === 0}
-            >
-              {selectedGraphTaskIds.map((taskId) => (
-                <option key={`to-${taskId}`} value={taskId}>{taskId}</option>
-              ))}
-            </select>
             <Button
               variant="secondary"
-              loading={busyAction === 'Add dependency'}
-              disabled={!selectedGraph || !depFromTask || !depToTask}
-              onClick={() =>
-                runGraphAction('Add dependency', async () => {
-                  if (!selectedGraph) return;
-                  await addGraphDependency({
-                    graph_id: selectedGraph.id,
-                    from_task: depFromTask,
-                    to_task: depToTask,
-                  });
-                })
-              }
+              loading={busyAction === 'Refresh state'}
+              onClick={() => runGraphAction('Refresh state', async () => refreshFromApi())}
             >
-              Add dependency
+              Refresh
             </Button>
-          </section>
-
-          <section className={styles.opsSection}>
-            <Text variant="overline" color="muted">Checks</Text>
-            <select
-              className={styles.opInput}
-              value={checkTaskId}
-              onChange={(e) => setCheckTaskId(e.target.value)}
-              disabled={!selectedGraph || selectedGraphTaskIds.length === 0}
-            >
-              {selectedGraphTaskIds.map((taskId) => (
-                <option key={`check-${taskId}`} value={taskId}>{taskId}</option>
-              ))}
-            </select>
-            <input
-              className={styles.opInput}
-              placeholder="Check name"
-              value={checkName}
-              onChange={(e) => setCheckName(e.target.value)}
-              disabled={!selectedGraph}
-            />
-            <input
-              className={styles.opInput}
-              placeholder="Check command"
-              value={checkCommand}
-              onChange={(e) => setCheckCommand(e.target.value)}
-              disabled={!selectedGraph}
-            />
-            <input
-              className={styles.opInput}
-              placeholder="Timeout ms (optional)"
-              value={checkTimeout}
-              onChange={(e) => setCheckTimeout(e.target.value)}
-              disabled={!selectedGraph}
-            />
-            <label className={styles.checkboxRow}>
-              <input
-                type="checkbox"
-                checked={checkRequired}
-                onChange={(e) => setCheckRequired(e.target.checked)}
-                disabled={!selectedGraph}
-              />
-              required check
-            </label>
-            <Button
-              variant="secondary"
-              loading={busyAction === 'Add check'}
-              disabled={!selectedGraph || !checkTaskId || !checkName.trim() || !checkCommand.trim()}
-              onClick={() =>
-                runGraphAction('Add check', async () => {
-                  if (!selectedGraph) return;
-                  await addGraphCheck({
-                    graph_id: selectedGraph.id,
-                    task_id: checkTaskId,
-                    name: checkName.trim(),
-                    command: checkCommand.trim(),
-                    required: checkRequired,
-                    timeout_ms: checkTimeout.trim() ? Number(checkTimeout) : undefined,
-                  });
-                  setCheckName('');
-                  setCheckCommand('');
-                  setCheckTimeout('');
-                })
-              }
-            >
-              Add check
-            </Button>
-          </section>
-
-          <section className={styles.opsSection}>
-            <Text variant="overline" color="muted">Lifecycle</Text>
-            <Button
-              variant="secondary"
-              loading={busyAction === 'Validate graph'}
-              disabled={!selectedGraph}
-              onClick={() =>
-                runGraphAction('Validate graph', async () => {
-                  if (!selectedGraph) return;
-                  await validateGraph({ graph_id: selectedGraph.id });
-                })
-              }
-            >
-              Validate selected graph
-            </Button>
-
-            <input
-              className={styles.opInput}
-              placeholder="Flow name (optional)"
-              value={flowName}
-              onChange={(e) => setFlowName(e.target.value)}
-              disabled={!selectedGraph}
-            />
-            <Button
-              variant="primary"
-              loading={busyAction === 'Create flow'}
-              disabled={!selectedGraph}
-              onClick={() =>
-                runGraphAction('Create flow', async () => {
-                  if (!selectedGraph) return;
-                  await createFlow({
-                    graph_id: selectedGraph.id,
-                    name: flowName.trim() || undefined,
-                  });
-                  setFlowName('');
-                })
-              }
-            >
-              Create flow from graph
-            </Button>
-          </section>
-        </div>
-      </Card>
+          </>
+        }
+      />
 
       <div style={{ display: 'flex', gap: 'var(--space-4)', flex: 1, minHeight: 0 }}>
         {/* Graph list */}
@@ -378,7 +188,7 @@ export function Graphs() {
                 title="No Task Graphs"
                 description="Create a task graph to plan dependency structures for your workflows"
                 action={
-                  <Button variant="primary" icon={<Plus size={16} />}>
+                  <Button variant="primary" icon={<Plus size={16} />} onClick={() => setShowCreateModal(true)}>
                     Create Graph
                   </Button>
                 }
@@ -485,6 +295,23 @@ export function Graphs() {
 
           return (
             <>
+              <div className={styles.detailTabs}>
+                <button
+                  className={`${styles.detailTab} ${detailTab === 'details' ? styles.activeDetailTab : ''}`}
+                  onClick={() => setDetailTab('details')}
+                >
+                  Details
+                </button>
+                <button
+                  className={`${styles.detailTab} ${detailTab === 'operations' ? styles.activeDetailTab : ''}`}
+                  onClick={() => setDetailTab('operations')}
+                >
+                  Operations
+                </button>
+              </div>
+
+              {detailTab === 'details' && (
+              <>
               {/* Graph info */}
               <div style={{ marginBottom: 'var(--space-4)' }}>
                 <Stack direction="row" gap={2} align="center" style={{ marginBottom: 'var(--space-3)' }}>
@@ -630,9 +457,215 @@ export function Graphs() {
                   </Stack>
                 </Card>
               </div>
+              </>
+              )}
+
+              {detailTab === 'operations' && (
+                <div className={styles.detailOps}>
+                  <div className={styles.detailSection}>
+                    <Text variant="overline" color="muted">Add Dependency</Text>
+                    <select
+                      className={styles.opInput}
+                      value={depFromTask}
+                      onChange={(e) => setDepFromTask(e.target.value)}
+                      disabled={!selectedGraph || selectedGraphTaskIds.length === 0}
+                    >
+                      {selectedGraphTaskIds.map((taskId) => (
+                        <option key={`from-${taskId}`} value={taskId}>{taskId}</option>
+                      ))}
+                    </select>
+                    <select
+                      className={styles.opInput}
+                      value={depToTask}
+                      onChange={(e) => setDepToTask(e.target.value)}
+                      disabled={!selectedGraph || selectedGraphTaskIds.length === 0}
+                    >
+                      {selectedGraphTaskIds.map((taskId) => (
+                        <option key={`to-${taskId}`} value={taskId}>{taskId}</option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="secondary"
+                      loading={busyAction === 'Add dependency'}
+                      disabled={!selectedGraph || !depFromTask || !depToTask}
+                      onClick={() =>
+                        runGraphAction('Add dependency', async () => {
+                          if (!selectedGraph) return;
+                          await addGraphDependency({
+                            graph_id: selectedGraph.id,
+                            from_task: depFromTask,
+                            to_task: depToTask,
+                          });
+                        })
+                      }
+                    >
+                      Add dependency
+                    </Button>
+                  </div>
+
+                  <div className={styles.detailSection}>
+                    <Text variant="overline" color="muted">Add Check</Text>
+                    <select
+                      className={styles.opInput}
+                      value={checkTaskId}
+                      onChange={(e) => setCheckTaskId(e.target.value)}
+                      disabled={!selectedGraph || selectedGraphTaskIds.length === 0}
+                    >
+                      {selectedGraphTaskIds.map((taskId) => (
+                        <option key={`check-${taskId}`} value={taskId}>{taskId}</option>
+                      ))}
+                    </select>
+                    <input
+                      className={styles.opInput}
+                      placeholder="Check name"
+                      value={checkName}
+                      onChange={(e) => setCheckName(e.target.value)}
+                      disabled={!selectedGraph}
+                    />
+                    <input
+                      className={styles.opInput}
+                      placeholder="Check command"
+                      value={checkCommand}
+                      onChange={(e) => setCheckCommand(e.target.value)}
+                      disabled={!selectedGraph}
+                    />
+                    <input
+                      className={styles.opInput}
+                      placeholder="Timeout ms (optional)"
+                      value={checkTimeout}
+                      onChange={(e) => setCheckTimeout(e.target.value)}
+                      disabled={!selectedGraph}
+                    />
+                    <label className={styles.checkboxRow}>
+                      <input
+                        type="checkbox"
+                        checked={checkRequired}
+                        onChange={(e) => setCheckRequired(e.target.checked)}
+                        disabled={!selectedGraph}
+                      />
+                      required check
+                    </label>
+                    <Button
+                      variant="secondary"
+                      loading={busyAction === 'Add check'}
+                      disabled={!selectedGraph || !checkTaskId || !checkName.trim() || !checkCommand.trim()}
+                      onClick={() =>
+                        runGraphAction('Add check', async () => {
+                          if (!selectedGraph) return;
+                          await addGraphCheck({
+                            graph_id: selectedGraph.id,
+                            task_id: checkTaskId,
+                            name: checkName.trim(),
+                            command: checkCommand.trim(),
+                            required: checkRequired,
+                            timeout_ms: checkTimeout.trim() ? Number(checkTimeout) : undefined,
+                          });
+                          setCheckName('');
+                          setCheckCommand('');
+                          setCheckTimeout('');
+                        })
+                      }
+                    >
+                      Add check
+                    </Button>
+                  </div>
+
+                  <div className={styles.detailSection}>
+                    <Text variant="overline" color="muted">Lifecycle</Text>
+                    <Button
+                      variant="secondary"
+                      loading={busyAction === 'Validate graph'}
+                      disabled={!selectedGraph}
+                      onClick={() =>
+                        runGraphAction('Validate graph', async () => {
+                          if (!selectedGraph) return;
+                          await validateGraph({ graph_id: selectedGraph.id });
+                        })
+                      }
+                    >
+                      Validate selected graph
+                    </Button>
+
+                    <input
+                      className={styles.opInput}
+                      placeholder="Flow name (optional)"
+                      value={flowName}
+                      onChange={(e) => setFlowName(e.target.value)}
+                      disabled={!selectedGraph}
+                    />
+                    <Button
+                      variant="primary"
+                      loading={busyAction === 'Create flow'}
+                      disabled={!selectedGraph}
+                      onClick={() =>
+                        runGraphAction('Create flow', async () => {
+                          if (!selectedGraph) return;
+                          await createFlow({
+                            graph_id: selectedGraph.id,
+                            name: flowName.trim() || undefined,
+                          });
+                          setFlowName('');
+                        })
+                      }
+                    >
+                      Create flow from graph
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           );
         })()}
+      </DetailPanel>
+
+      <DetailPanel
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        width={420}
+        header={<Text variant="h4">Create New Graph</Text>}
+      >
+        <div className={styles.detailOps}>
+          <div className={styles.detailSection}>
+            <input
+              className={styles.opInput}
+              placeholder="Graph name"
+              value={newGraphName}
+              onChange={(e) => setNewGraphName(e.target.value)}
+            />
+            <textarea
+              className={styles.opTextarea}
+              placeholder="Task IDs (comma separated)"
+              value={newGraphTaskIds}
+              onChange={(e) => setNewGraphTaskIds(e.target.value)}
+            />
+            {projectTasks.length > 0 && (
+              <Text variant="caption" color="muted">
+                Project task ids: {projectTasks.map((task) => task.id).join(', ')}
+              </Text>
+            )}
+            <Button
+              variant="primary"
+              icon={<Plus size={14} />}
+              loading={busyAction === 'Create graph'}
+              disabled={!selectedProjectId || !newGraphName.trim()}
+              onClick={() =>
+                runGraphAction('Create graph', async () => {
+                  if (!selectedProjectId) return;
+                  await createGraph({
+                    project: selectedProjectId,
+                    name: newGraphName.trim(),
+                    from_tasks: parseIds(newGraphTaskIds),
+                  });
+                  setNewGraphName('');
+                  setNewGraphTaskIds('');
+                  setShowCreateModal(false);
+                })
+              }
+            >
+              Create graph
+            </Button>
+          </div>
+        </div>
       </DetailPanel>
     </div>
   );

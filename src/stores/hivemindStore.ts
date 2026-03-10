@@ -12,14 +12,31 @@ import type {
   WorktreeStatus,
   VerifyResultsView,
   AttemptInspectView,
+  RuntimeStreamItemView,
+  ChatMode,
+  ChatHistoryMessageInput,
+  ChatInvokeResponse,
+  ChatSessionSummaryView,
+  ChatSessionInspectView,
+  ChatSessionSendResponse,
   CheckpointCompletionResult,
   RunMode,
   RuntimeRole,
   RuntimeListEntry,
   RuntimeHealthStatus,
+  GovernanceConstitutionResult,
+  GovernanceConstitutionCheckResult,
+  GovernanceDocumentSummary,
+  GovernanceDocumentInspectResult,
+  GovernanceNotepadResult,
+  GlobalSkillSummary,
+  GlobalSkillInspectResult,
+  GlobalTemplateSummary,
+  GlobalTemplateInspectResult,
+  GraphSnapshotRefreshResult,
 } from '../types';
 
-const API_BASE_URL =
+export const API_BASE_URL =
   ((import.meta.env as unknown as Record<string, string | undefined>)[
     'VITE_HIVEMIND_API_BASE_URL'
   ] ?? 'http://127.0.0.1:8787');
@@ -91,6 +108,22 @@ function buildQuery(params: Record<string, string | number | boolean | undefined
   }
   const query = search.toString();
   return query.length > 0 ? `?${query}` : '';
+}
+
+type ChatAuthQuery = {
+  actor?: string;
+  accessToken?: string;
+};
+
+function buildChatQuery(
+  params: Record<string, string | number | boolean | undefined>,
+  auth?: ChatAuthQuery,
+): string {
+  return buildQuery({
+    ...params,
+    actor: auth?.actor?.trim() || undefined,
+    access_token: auth?.accessToken?.trim() || undefined,
+  });
 }
 
 async function apiGet<T>(path: string): Promise<T> {
@@ -541,6 +574,42 @@ interface HivemindStore {
   fetchVersion: () => Promise<string>;
   fetchApiCatalog: () => Promise<ApiCatalog>;
   inspectEvent: (payload: { event_id: string }) => Promise<Record<string, unknown>>;
+  invokeChat: (payload: {
+    mode: ChatMode;
+    message: string;
+    project?: string;
+    task?: string;
+    flow?: string;
+    history?: ChatHistoryMessageInput[];
+    context?: string;
+    actor?: string;
+    accessToken?: string;
+  }) => Promise<ChatInvokeResponse>;
+  listChatSessions: (payload?: {
+    project?: string;
+    task?: string;
+    flow?: string;
+    limit?: number;
+    actor?: string;
+    accessToken?: string;
+  }) => Promise<ChatSessionSummaryView[]>;
+  createChatSession: (payload: {
+    mode: ChatMode;
+    title?: string;
+    project?: string;
+    task?: string;
+    flow?: string;
+    actor?: string;
+    accessToken?: string;
+  }) => Promise<ChatSessionInspectView>;
+  inspectChatSession: (payload: { session_id: string; actor?: string; accessToken?: string }) => Promise<ChatSessionInspectView>;
+  sendChatSessionMessage: (payload: {
+    session_id: string;
+    message: string;
+    context?: string;
+    actor?: string;
+    accessToken?: string;
+  }) => Promise<ChatSessionSendResponse>;
 
   createProject: (payload: { name: string; description?: string }) => Promise<void>;
   updateProject: (payload: {
@@ -548,6 +617,7 @@ interface HivemindStore {
     name?: string;
     description?: string;
   }) => Promise<void>;
+  deleteProject: (payload: { project: string }) => Promise<void>;
   setProjectRuntime: (payload: {
     project: string;
     role?: RuntimeRole;
@@ -697,12 +767,30 @@ interface HivemindStore {
     attempt_id: string;
     diff?: boolean;
   }) => Promise<AttemptInspectView>;
+  fetchRuntimeStream: (payload: {
+    attempt_id?: string;
+    flow_id?: string;
+    limit?: number;
+  }) => Promise<RuntimeStreamItemView[]>;
   fetchAttemptDiff: (payload: {
     attempt_id: string;
   }) => Promise<{ attempt_id: string; diff: string | null }>;
   replayFlow: (payload: { flow_id: string }) => Promise<Record<string, unknown>>;
   listWorktrees: (payload: { flow_id: string }) => Promise<WorktreeStatus[]>;
   inspectWorktree: (payload: { task_id: string }) => Promise<WorktreeStatus | null>;
+
+  // ─── Governance ───
+  fetchConstitution: (project: string) => Promise<GovernanceConstitutionResult>;
+  checkConstitution: (payload: { project: string }) => Promise<GovernanceConstitutionCheckResult>;
+  fetchGovernanceDocuments: (project: string) => Promise<GovernanceDocumentSummary[]>;
+  inspectGovernanceDocument: (project: string, documentId: string) => Promise<GovernanceDocumentInspectResult>;
+  fetchProjectNotepad: (project: string) => Promise<GovernanceNotepadResult>;
+  fetchGlobalNotepad: () => Promise<GovernanceNotepadResult>;
+  fetchGlobalSkills: () => Promise<GlobalSkillSummary[]>;
+  inspectGlobalSkill: (skillId: string) => Promise<GlobalSkillInspectResult>;
+  fetchGlobalTemplates: () => Promise<GlobalTemplateSummary[]>;
+  inspectGlobalTemplate: (templateId: string) => Promise<GlobalTemplateInspectResult>;
+  refreshGraphSnapshot: (payload: { project: string; trigger?: string }) => Promise<GraphSnapshotRefreshResult>;
 
   // ─── Derived ───
   getProject: (id: string) => Project | undefined;
@@ -831,12 +919,67 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
       `/api/events/inspect${buildQuery({ event_id: payload.event_id })}`,
     ),
 
+  invokeChat: async (payload) =>
+    apiPost<ChatInvokeResponse>(
+      `/api/chat/invoke${buildChatQuery({}, payload)}`,
+      {
+        mode: payload.mode,
+        message: payload.message,
+        project: payload.project,
+        task: payload.task,
+        flow: payload.flow,
+        history: payload.history,
+        context: payload.context,
+      },
+    ),
+
+  listChatSessions: async (payload) =>
+    apiGet<ChatSessionSummaryView[]>(
+      `/api/chat/sessions${buildChatQuery({
+        project_id: payload?.project,
+        task_id: payload?.task,
+        flow_id: payload?.flow,
+        limit: payload?.limit,
+      }, payload)}`,
+    ),
+
+  createChatSession: async (payload) =>
+    apiPost<ChatSessionInspectView>(
+      `/api/chat/sessions/create${buildChatQuery({}, payload)}`,
+      {
+        mode: payload.mode,
+        title: payload.title,
+        project_id: payload.project,
+        task_id: payload.task,
+        flow_id: payload.flow,
+      },
+    ),
+
+  inspectChatSession: async (payload) =>
+    apiGet<ChatSessionInspectView>(
+      `/api/chat/sessions/inspect${buildChatQuery({ session_id: payload.session_id }, payload)}`,
+    ),
+
+  sendChatSessionMessage: async (payload) =>
+    apiPost<ChatSessionSendResponse>(
+      `/api/chat/sessions/send${buildChatQuery({}, payload)}`,
+      {
+        session_id: payload.session_id,
+        content: payload.message,
+        context: payload.context,
+      },
+    ),
+
   createProject: async (payload) => {
     await apiPost('/api/projects/create', payload);
     await get().refreshFromApi();
   },
   updateProject: async (payload) => {
     await apiPost('/api/projects/update', payload);
+    await get().refreshFromApi();
+  },
+  deleteProject: async (payload) => {
+    await apiPost('/api/projects/delete', payload);
     await get().refreshFromApi();
   },
   setProjectRuntime: async (payload) => {
@@ -1004,6 +1147,14 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
         diff: payload.diff,
       })}`,
     ),
+  fetchRuntimeStream: async (payload) =>
+    apiGet<RuntimeStreamItemView[]>(
+      `/api/runtime-stream${buildQuery({
+        attempt_id: payload.attempt_id,
+        flow_id: payload.flow_id,
+        limit: payload.limit,
+      })}`,
+    ),
   fetchAttemptDiff: async (payload) =>
     apiGet<{ attempt_id: string; diff: string | null }>(
       `/api/attempts/diff${buildQuery({ attempt_id: payload.attempt_id })}`,
@@ -1020,6 +1171,47 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
     apiGet<WorktreeStatus | null>(
       `/api/worktrees/inspect${buildQuery({ task_id: payload.task_id })}`,
     ),
+
+  // ─── Governance ───
+  fetchConstitution: async (project: string) =>
+    apiGet<GovernanceConstitutionResult>(
+      `/api/governance/constitution${buildQuery({ project })}`,
+    ),
+  checkConstitution: async (payload: { project: string }) => {
+    const result = await apiPost<GovernanceConstitutionCheckResult>('/api/governance/constitution/check', payload);
+    return result;
+  },
+  fetchGovernanceDocuments: async (project: string) =>
+    apiGet<GovernanceDocumentSummary[]>(
+      `/api/governance/documents${buildQuery({ project })}`,
+    ),
+  inspectGovernanceDocument: async (project: string, documentId: string) =>
+    apiGet<GovernanceDocumentInspectResult>(
+      `/api/governance/documents/inspect${buildQuery({ project, document_id: documentId })}`,
+    ),
+  fetchProjectNotepad: async (project: string) =>
+    apiGet<GovernanceNotepadResult>(
+      `/api/governance/notepad${buildQuery({ project })}`,
+    ),
+  fetchGlobalNotepad: async () =>
+    apiGet<GovernanceNotepadResult>('/api/governance/global/notepad'),
+  fetchGlobalSkills: async () =>
+    apiGet<GlobalSkillSummary[]>('/api/governance/global/skills'),
+  inspectGlobalSkill: async (skillId: string) =>
+    apiGet<GlobalSkillInspectResult>(
+      `/api/governance/global/skills/inspect${buildQuery({ skill_id: skillId })}`,
+    ),
+  fetchGlobalTemplates: async () =>
+    apiGet<GlobalTemplateSummary[]>('/api/governance/global/templates'),
+  inspectGlobalTemplate: async (templateId: string) =>
+    apiGet<GlobalTemplateInspectResult>(
+      `/api/governance/global/templates/inspect${buildQuery({ template_id: templateId })}`,
+    ),
+  refreshGraphSnapshot: async (payload: { project: string; trigger?: string }) => {
+    const result = await apiPost<GraphSnapshotRefreshResult>('/api/governance/graph-snapshot/refresh', payload);
+    await get().refreshFromApi();
+    return result;
+  },
 
   // ─── Derived ───
   getProject: (id) => get().projects.find((p) => p.id === id),

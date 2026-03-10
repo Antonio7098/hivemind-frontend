@@ -12,3 +12,8 @@ export { SectionCard } from './SectionCard';
 export { Toggle } from './Toggle';
 export { SettingRow } from './SettingRow';
 export { CardHeader } from './CardHeader';
+export { TabPanel, TabList, Tab, TabContent } from './TabPanel';
+export { Expandable, ExpandableGroup } from './Expandable';
+export { DetailModal, DetailToggle } from './DetailModal';
+export { DataList, DataListItem, DataListHeader, DataListEmpty } from './DataList';
+export { EventStream, EventDetail } from './EventStream';

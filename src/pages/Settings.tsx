@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Monitor, Bell, Shield, Palette } from 'lucide-react';
 import { Button } from '../components/Button';
+import { Card } from '../components/Card';
 import { PageHeader } from '../components/composites/PageHeader';
-import { SectionCard } from '../components/composites/SectionCard';
+import { TabPanel, TabList, Tab, TabContent } from '../components/composites/TabPanel';
 import { SettingRow } from '../components/composites/SettingRow';
 import { Toggle } from '../components/composites/Toggle';
 import { Stack } from '../components/primitives/Stack';
@@ -88,8 +89,17 @@ export function Settings() {
         subtitle="Configure Hivemind to match your workflow"
       />
 
-      <Stack gap={4}>
-        <SectionCard icon={<Monitor size={20} />} title="Runtime Configuration" delay={0.1}>
+      <Card variant="default" className={styles.settingsCard}>
+        <TabPanel defaultTab="runtime" variant="pills">
+          <TabList>
+            <Tab id="runtime" icon={<Monitor size={16} />}>Runtime</Tab>
+            <Tab id="notifications" icon={<Bell size={16} />}>Notifications</Tab>
+            <Tab id="scope" icon={<Shield size={16} />}>Scope</Tab>
+            <Tab id="appearance" icon={<Palette size={16} />}>Appearance</Tab>
+          </TabList>
+
+          <TabContent id="runtime">
+            <Stack gap={3} className={styles.tabContent}>
           <SettingRow
             label="Server Version"
             description="Connected hivemind backend version"
@@ -274,18 +284,20 @@ export function Settings() {
               <pre className={styles.apiList}>{runtimeCatalogOutput || 'No runtime diagnostics yet.'}</pre>
             </div>
           </div>
-          <Button
-            variant="secondary"
-            loading={busy}
-            onClick={() => {
-              void syncApiDiagnostics();
-            }}
-          >
-            Reload API diagnostics
-          </Button>
-        </SectionCard>
+              <Button
+                variant="secondary"
+                loading={busy}
+                onClick={() => {
+                  void syncApiDiagnostics();
+                }}
+              >
+                Reload API diagnostics
+              </Button>
+            </Stack>
+          </TabContent>
 
-        <SectionCard icon={<Bell size={20} />} title="Notifications" delay={0.2}>
+          <TabContent id="notifications">
+            <Stack gap={3} className={styles.tabContent}>
           <SettingRow
             label="Task Failures"
             description="Notify when tasks fail or escalate"
@@ -301,9 +313,11 @@ export function Settings() {
             description="Notify on scope violations"
             control={<Toggle checked={scopeViolations} onChange={setScopeViolations} />}
           />
-        </SectionCard>
+            </Stack>
+          </TabContent>
 
-        <SectionCard icon={<Shield size={20} />} title="Scope Defaults" delay={0.3}>
+          <TabContent id="scope">
+            <Stack gap={3} className={styles.tabContent}>
           <SettingRow
             label="Default Isolation"
             description="Isolate conflicting scopes by default"
@@ -314,9 +328,11 @@ export function Settings() {
             description="Fail immediately on scope violations"
             control={<Toggle checked={strictMode} onChange={setStrictMode} />}
           />
-        </SectionCard>
+            </Stack>
+          </TabContent>
 
-        <SectionCard icon={<Palette size={20} />} title="Appearance" delay={0.4}>
+          <TabContent id="appearance">
+            <Stack gap={3} className={styles.tabContent}>
           <SettingRow
             label="Theme"
             description="Visual theme preference"
@@ -333,8 +349,10 @@ export function Settings() {
             description="Reduce spacing for more content"
             control={<Toggle checked={compactMode} onChange={setCompactMode} />}
           />
-        </SectionCard>
-      </Stack>
+            </Stack>
+          </TabContent>
+        </TabPanel>
+      </Card>
 
       <div className={styles.footer}>
         <Button variant="secondary">Reset to Defaults</Button>

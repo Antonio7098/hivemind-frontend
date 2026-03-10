@@ -18,6 +18,8 @@ import {
   FileText,
   BookOpen,
   Code,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { PageHeader } from '../components/composites/PageHeader';
 import { Button } from '../components/Button';
@@ -236,6 +238,10 @@ export function ProjectDetail() {
     fetchGlobalSkills,
     fetchGlobalTemplates,
     refreshGraphSnapshot,
+    getGraphForFlow,
+    attachProjectRepo,
+    detachProjectRepo,
+    createTask,
   } = useHivemindStore();
   const [panelSelection, setPanelSelection] = useState<PanelSelection | null>(null);
   const [activeTab, setActiveTab] = useState<ProjectTab>('overview');
@@ -249,6 +255,15 @@ export function ProjectDetail() {
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<KanbanColumnId | null>(null);
   const [selectedRuntimeContextKey, setSelectedRuntimeContextKey] = useState<string | null>(null);
+  const [showAddRepoModal, setShowAddRepoModal] = useState(false);
+  const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
+  const [showCreateFlowModal, setShowCreateFlowModal] = useState(false);
+  const [newRepoPath, setNewRepoPath] = useState('');
+  const [newRepoName, setNewRepoName] = useState('');
+  const [newRepoAccess, setNewRepoAccess] = useState<'readonly' | 'readwrite'>('readwrite');
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDescription, setNewTaskDescription] = useState('');
+  const [newFlowGraphId, setNewFlowGraphId] = useState('');
 
   const project = useMemo(
     () => projects.find((entry) => entry.id === id) ?? null,
@@ -557,81 +572,25 @@ export function ProjectDetail() {
     }
   };
 
-
-
-
-  const loadProjectGovernance = useCallback(async () => {
+  const handleAddRepo = async () => {
     if (!project) return;
-    setProjectGovLoading(true);
-    try {
-      const [constitutionData, docsData, notepadData] = await Promise.all([
-        fetchConstitution(project.id).catch(() => null),
-        fetchGovernanceDocuments(project.id).catch(() => []),
-        fetchProjectNotepad(project.id).catch(() => null),
-      ]);
-      setConstitution(constitutionData);
-      setDocuments(docsData);
-      setProjectNotepad(notepadData);
-    } catch (error) {
-      addNotification({
-        type: 'error',
-        title: 'Failed to load project governance',
-        message: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setProjectGovLoading(false);
-    }
-  }, [project, fetchConstitution, fetchGovernanceDocuments, fetchProjectNotepad, addNotification]);
-
-  const loadGlobalGovernance = useCallback(async () => {
-    setGlobalGovLoading(true);
-    try {
-      const [notepadData, skillsData, templatesData] = await Promise.all([
-        fetchGlobalNotepad().catch(() => null),
-        fetchGlobalSkills().catch(() => []),
-        fetchGlobalTemplates().catch(() => []),
-      ]);
-      setGlobalNotepad(notepadData);
-      setSkills(skillsData);
-      setTemplates(templatesData);
-    } catch (error) {
-      addNotification({
-        type: 'error',
-        title: 'Failed to load global governance',
-        message: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setGlobalGovLoading(false);
-    }
-  }, [fetchGlobalNotepad, fetchGlobalSkills, fetchGlobalTemplates, addNotification]);
-
-  useEffect(() => {
-    void loadProjectGovernance();
-  }, [loadProjectGovernance]);
-
-  useEffect(() => {
-    void loadGlobalGovernance();
-  }, [loadGlobalGovernance]);
-
-  const handleCheckConstitution = async () => {
-    if (!project) return;
-    const label = 'Validate constitution';
+    const label = 'Add repository';
     setBusyAction(label);
     try {
-      const result = await checkConstitution({ project: project.id });
-      if (result.valid) {
-        addNotification({ type: 'success', title: 'Constitution valid', message: 'All checks passed' });
-      } else {
-        addNotification({
-          type: 'warning',
-          title: 'Constitution issues detected',
-          message: result.errors.join(', '),
-        });
-      }
+      await attachProjectRepo({
+        project: project.name,
+        path: newRepoPath.trim(),
+        name: newRepoName.trim() || undefined,
+        access: newRepoAccess,
+      });
+      addNotification({ type: 'success', title: 'Repository added' });
+      setNewRepoPath('');
+      setNewRepoName('');
+      setShowAddRepoModal(false);
     } catch (error) {
       addNotification({
         type: 'error',
-        title: 'Validation failed',
+        title: 'Failed to add repository',
         message: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -639,17 +598,20 @@ export function ProjectDetail() {
     }
   };
 
-  const handleRefreshSnapshot = async () => {
+  const handleDetachRepo = async (repoName: string) => {
     if (!project) return;
-    const label = 'Refresh graph snapshot';
+    if (!confirm(`Are you sure you want to detach repository "${repoName}" from project "${project.name}"?`)) {
+      return;
+    }
+    const label = 'Detach repository';
     setBusyAction(label);
     try {
-      await refreshGraphSnapshot({ project: project.id, trigger: 'project-detail' });
-      addNotification({ type: 'success', title: 'Snapshot refreshed' });
+      await detachProjectRepo({ project: project.name, repo_name: repoName });
+      addNotification({ type: 'success', title: 'Repository detached' });
     } catch (error) {
       addNotification({
         type: 'error',
-        title: 'Snapshot refresh failed',
+        title: 'Failed to detach repository',
         message: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -657,7 +619,55 @@ export function ProjectDetail() {
     }
   };
 
-  if (!project) {
+  const handleCreateTask = async () => {
+    if (!project) return;
+    const label = 'Create task';
+    setBusyAction(label);
+    try {
+      await createTask({
+        project: project.name,
+        title: newTaskTitle.trim(),
+        description: newTaskDescription.trim() || undefined,
+      });
+      addNotification({ type: 'success', title: 'Task created' });
+      setNewTaskTitle('');
+      setNewTaskDescription('');
+      setShowCreateTaskModal(false);
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Failed to create task',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleCreateFlow = async () => {
+    if (!project || !newFlowGraphId) return;
+    const label = 'Create flow';
+    setBusyAction(label);
+    try {
+      await createFlow({ graph_id: newFlowGraphId });
+      addNotification({ type: 'success', title: 'Flow created' });
+      setNewFlowGraphId('');
+      setShowCreateFlowModal(false);
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Failed to create flow',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+
+
+
+    if (!project) {
     return (
       <div className={styles.page}>
         <PageHeader
@@ -697,7 +707,23 @@ export function ProjectDetail() {
         <Card
           variant="default"
           padding="none"
-          header={<CardHeader icon={<GitFork size={18} />} title="Flows" trailing={<Badge variant="default" size="sm">{projectFlows.length}</Badge>} />}
+          header={
+            <CardHeader
+              icon={<GitFork size={18} />}
+              title="Flows"
+              trailing={<Badge variant="default" size="sm">{projectFlows.length}</Badge>}
+              actions={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Plus size={14} />}
+                  onClick={() => setShowCreateFlowModal(true)}
+                >
+                  Create Flow
+                </Button>
+              }
+            />
+          }
         >
           <div className={styles.flowList}>
             {projectFlows.length === 0 ? (
@@ -780,6 +806,14 @@ export function ProjectDetail() {
           </div>
         </Card>
 
+        <Button
+          variant="primary"
+          icon={<Plus size={14} />}
+          onClick={() => setShowCreateTaskModal(true)}
+        >
+          Create Task
+        </Button>
+
         <Card
           variant="default"
           padding="none"
@@ -840,7 +874,17 @@ export function ProjectDetail() {
             {renderOverview()}
             <div className={styles.layout}>
               <Card variant="outlined" className={styles.section}>
-                <div className={styles.sectionTitle}>Repositories</div>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionTitle}>Repositories</div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Plus size={14} />}
+                    onClick={() => setShowAddRepoModal(true)}
+                  >
+                    Add Repo
+                  </Button>
+                </div>
                 {project?.repositories.length === 0 ? (
                   <Text variant="body-sm" color="tertiary">No repositories attached.</Text>
                 ) : (
@@ -854,9 +898,18 @@ export function ProjectDetail() {
                           </Stack>
                           <Text variant="mono-sm" color="muted">{repo.path}</Text>
                         </Stack>
-                        <Badge variant={repo.access_mode === 'readwrite' ? 'amber' : 'default'} size="sm">
-                          {repo.access_mode}
-                        </Badge>
+                        <Stack direction="row" gap={2} align="center">
+                          <Badge variant={repo.access_mode === 'readwrite' ? 'amber' : 'default'} size="sm">
+                            {repo.access_mode}
+                          </Badge>
+                          <button
+                            className={styles.iconBtn}
+                            onClick={() => handleDetachRepo(repo.name)}
+                            title="Detach repository"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </Stack>
                       </div>
                     ))}
                   </div>
@@ -1617,6 +1670,107 @@ export function ProjectDetail() {
             <pre className={styles.payload}>{JSON.stringify(panelSelection.value.payload, null, 2)}</pre>
           </div>
         )}
+      </DetailPanel>
+
+      <DetailPanel
+        open={showAddRepoModal}
+        onClose={() => setShowAddRepoModal(false)}
+        width={400}
+        header={<Text variant="h4">Add Repository</Text>}
+      >
+        <div className={styles.form}>
+          <input
+            className={styles.input}
+            placeholder="Repository path"
+            value={newRepoPath}
+            onChange={(e) => setNewRepoPath(e.target.value)}
+          />
+          <input
+            className={styles.input}
+            placeholder="Repository name (optional)"
+            value={newRepoName}
+            onChange={(e) => setNewRepoName(e.target.value)}
+          />
+          <select
+            className={styles.input}
+            value={newRepoAccess}
+            onChange={(e) => setNewRepoAccess(e.target.value as 'readonly' | 'readwrite')}
+          >
+            <option value="readwrite">Read/Write</option>
+            <option value="readonly">Read Only</option>
+          </select>
+          <Button
+            variant="primary"
+            icon={<Plus size={14} />}
+            loading={busyAction === 'Add repository'}
+            disabled={!newRepoPath.trim()}
+            onClick={handleAddRepo}
+          >
+            Add Repository
+          </Button>
+        </div>
+      </DetailPanel>
+
+      <DetailPanel
+        open={showCreateTaskModal}
+        onClose={() => setShowCreateTaskModal(false)}
+        width={400}
+        header={<Text variant="h4">Create Task</Text>}
+      >
+        <div className={styles.form}>
+          <input
+            className={styles.input}
+            placeholder="Task title"
+            value={newTaskTitle}
+            onChange={(e) => setNewTaskTitle(e.target.value)}
+          />
+          <textarea
+            className={styles.textarea}
+            placeholder="Description (optional)"
+            value={newTaskDescription}
+            onChange={(e) => setNewTaskDescription(e.target.value)}
+          />
+          <Button
+            variant="primary"
+            icon={<Plus size={14} />}
+            loading={busyAction === 'Create task'}
+            disabled={!newTaskTitle.trim()}
+            onClick={handleCreateTask}
+          >
+            Create Task
+          </Button>
+        </div>
+      </DetailPanel>
+
+      <DetailPanel
+        open={showCreateFlowModal}
+        onClose={() => setShowCreateFlowModal(false)}
+        width={400}
+        header={<Text variant="h4">Create Flow</Text>}
+      >
+        <div className={styles.form}>
+          <select
+            className={styles.input}
+            value={newFlowGraphId}
+            onChange={(e) => setNewFlowGraphId(e.target.value)}
+          >
+            <option value="">Select a graph</option>
+            {projectGraphs.map((graph) => (
+              <option key={graph.id} value={graph.id}>
+                {graph.name}
+              </option>
+            ))}
+          </select>
+          <Button
+            variant="primary"
+            icon={<Play size={14} />}
+            loading={busyAction === 'Create flow'}
+            disabled={!newFlowGraphId}
+            onClick={handleCreateFlow}
+          >
+            Create Flow
+          </Button>
+        </div>
       </DetailPanel>
     </div>
   );

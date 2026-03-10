@@ -7,9 +7,13 @@ import { TopNavLayout } from './layouts/TopNavLayout';
 import { FloatingLayout } from './layouts/FloatingLayout';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { Dashboard } from './pages/Dashboard';
+import { Active } from './pages/Active';
+import { Pending } from './pages/Pending';
+import { Governance } from './pages/Governance';
 import { Projects } from './pages/Projects';
 import { ProjectDetail } from './pages/ProjectDetail';
 import { Tasks } from './pages/Tasks';
+import { Chat } from './pages/Chat';
 import { Graphs } from './pages/Graphs';
 import { TaskFlows } from './pages/TaskFlows';
 import { Merges } from './pages/Merges';
@@ -33,10 +37,15 @@ function LayoutRouter() {
     <Routes>
       <Route path="/" element={<LayoutComponent />}>
         <Route index element={<Dashboard />} />
+        <Route path="active" element={<Active />} />
+        <Route path="pending" element={<Pending />} />
+        <Route path="todo" element={<Tasks />} />
+        <Route path="governance" element={<Governance />} />
         <Route path="projects" element={<Projects />} />
         <Route path="projects/:id" element={<ProjectDetail />} />
         <Route path="tasks" element={<Tasks />} />
         <Route path="tasks/:id" element={<Tasks />} />
+        <Route path="chat" element={<Chat />} />
         <Route path="graphs" element={<Graphs />} />
         <Route path="graphs/:id" element={<Graphs />} />
         <Route path="flows" element={<TaskFlows />} />

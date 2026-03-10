@@ -408,10 +408,271 @@ export interface AttemptInspectView {
   started_at: string;
   baseline_id: string | null;
   diff_id: string | null;
+  runtime_session: AttemptRuntimeSessionView | null;
+  turn_refs: AttemptTurnRefView[];
   diff: string | null;
+}
+
+export interface AttemptRuntimeSessionView {
+  adapter_name: string;
+  session_id: string;
+  discovered_at: string;
+}
+
+export interface AttemptTurnRefView {
+  ordinal: number;
+  adapter_name: string;
+  stream: string;
+  provider_session_id: string | null;
+  provider_turn_id: string | null;
+  git_ref: string | null;
+  commit_sha: string | null;
+  summary: string | null;
+}
+
+export interface RuntimeStreamItemView {
+  event_id: string;
+  sequence: number;
+  timestamp: string;
+  flow_id: string | null;
+  task_id: string | null;
+  attempt_id: string | null;
+  kind: string;
+  stream: string | null;
+  title: string | null;
+  text: string | null;
+  data: Record<string, unknown>;
+}
+
+export type ChatMode = 'freeflow' | 'plan';
+export type ChatHistoryRole = 'user' | 'assistant';
+
+export interface ChatHistoryMessageInput {
+  role: ChatHistoryRole;
+  content: string;
+}
+
+export interface ChatInvokeTurnView {
+  turn_index: number;
+  from_state: string;
+  to_state: string;
+  directive_kind: string;
+  directive_text: string;
+  raw_output: string;
+}
+
+export interface ChatTransportAttemptTrace {
+  turn_index: number;
+  attempt: number;
+  transport: string;
+  code: string;
+  message: string;
+  retryable: boolean;
+  rate_limited: boolean;
+  status_code: number | null;
+  backoff_ms: number | null;
+}
+
+export interface ChatTransportFallbackTrace {
+  turn_index: number;
+  from_transport: string;
+  to_transport: string;
+  reason: string;
+}
+
+export interface ChatTransportTelemetry {
+  attempts: ChatTransportAttemptTrace[];
+  fallback_activations: ChatTransportFallbackTrace[];
+  active_transport: string | null;
+}
+
+export interface ChatInvokeResponse {
+  request_id: string;
+  mode: ChatMode;
+  project_id: string | null;
+  task_id: string | null;
+  flow_id: string | null;
+  runtime_selection_source: string | null;
+  provider: string;
+  model: string;
+  assistant_message: string;
+  final_state: string;
+  turns: ChatInvokeTurnView[];
+  transport: ChatTransportTelemetry;
+}
+
+export interface ChatSessionMessageView {
+  message_id: string;
+  role: ChatHistoryRole;
+  content: string;
+  created_at: string;
+  request_id: string | null;
+  provider: string | null;
+  model: string | null;
+  final_state: string | null;
+  runtime_selection_source: string | null;
+}
+
+export interface ChatSessionSummaryView {
+  session_id: string;
+  mode: ChatMode;
+  title: string;
+  owner_actor_id?: string | null;
+  project_id: string | null;
+  task_id: string | null;
+  flow_id: string | null;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  last_message_preview: string | null;
+}
+
+export interface ChatSessionInspectView {
+  session_id: string;
+  mode: ChatMode;
+  title: string;
+  owner_actor_id?: string | null;
+  project_id: string | null;
+  task_id: string | null;
+  flow_id: string | null;
+  created_at: string;
+  updated_at: string;
+  messages: ChatSessionMessageView[];
+}
+
+export interface ChatSessionSendResponse {
+  session_id: string;
+  user_message_id: string;
+  assistant_message_id: string;
+  response: ChatInvokeResponse;
+}
+
+export interface ChatStreamChunkView {
+  session_id: string;
+  message_id: string;
+  request_id: string | null;
+  turn_index: number;
+  from_state: string;
+  to_state: string;
+  directive_kind: string;
+  content: string;
+}
+
+export interface ChatStreamTextDeltaView {
+  session_id: string;
+  message_id: string;
+  request_id: string | null;
+  content: string;
+}
+
+export type ChatStreamEvent =
+  | { kind: 'message_appended'; message: ChatSessionMessageView }
+  | { kind: 'stream_chunk'; chunk: ChatStreamChunkView }
+  | { kind: 'text_delta'; delta: ChatStreamTextDeltaView };
+
+export interface ChatStreamEnvelope {
+  cursor: string;
+  session_id: string;
+  event: ChatStreamEvent;
 }
 
 export interface ApiCatalog {
   read_endpoints: string[];
   write_endpoints: string[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GOVERNANCE (Phase 3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface GovernanceConstitutionResult {
+  project_id: string;
+  project_name: string;
+  initialized: boolean;
+  content: string | null;
+  schema_version: string | null;
+  validated_at: string | null;
+  validated_by: string | null;
+}
+
+export interface GovernanceConstitutionCheckResult {
+  project_id: string;
+  project_name: string;
+  initialized: boolean;
+  valid: boolean;
+  errors: string[];
+}
+
+export interface GovernanceDocumentSummary {
+  document_id: string;
+  title: string;
+  revision_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GovernanceDocumentRevision {
+  revision_id: string;
+  content: string;
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface GovernanceDocumentInspectResult {
+  document_id: string;
+  title: string;
+  description: string | null;
+  current_content: string;
+  revisions: GovernanceDocumentRevision[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GovernanceNotepadResult {
+  project_id: string | null;
+  content: string;
+  updated_at: string;
+}
+
+export interface GlobalSkillSummary {
+  skill_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GlobalSkillInspectResult {
+  skill_id: string;
+  name: string;
+  description: string | null;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GlobalTemplateSummary {
+  template_id: string;
+  system_prompt_id: string;
+  skill_ids: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GlobalTemplateInspectResult {
+  template_id: string;
+  system_prompt_id: string;
+  skill_ids: string[];
+  resolved_content: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GraphSnapshotRefreshResult {
+  project_id: string;
+  project_name: string;
+  snapshot_id: string;
+  trigger: string;
+  node_count: number;
+  edge_count: number;
 }

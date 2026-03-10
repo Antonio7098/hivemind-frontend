@@ -10,6 +10,7 @@ interface CardHeaderProps {
   linkTo?: string;
   linkLabel?: string;
   className?: string;
+  actions?: ReactNode;
 }
 
 export function CardHeader({
@@ -19,6 +20,7 @@ export function CardHeader({
   linkTo,
   linkLabel = 'View all',
   className = '',
+  actions,
 }: CardHeaderProps) {
   return (
     <div className={`${styles.header} ${className}`}>
@@ -27,6 +29,7 @@ export function CardHeader({
         <span>{title}</span>
         {trailing}
       </div>
+      {actions}
       {linkTo && (
         <Link to={linkTo} className={styles.link}>
           {linkLabel} <ArrowRight size={14} />

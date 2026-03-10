@@ -1,0 +1,239 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   DATA LIST - Unified list component for displaying items
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.dataList {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Columns ─── */
+
+.cols-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.cols-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+
+/* ─── Item ─── */
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  text-align: left;
+  width: 100%;
+  font-family: var(--font-sans);
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.item.clickable {
+  cursor: pointer;
+}
+
+.item.clickable:hover {
+  background: var(--surface-2);
+}
+
+.item.selected {
+  background: var(--surface-3);
+}
+
+.item + .item {
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ─── Status Variants ─── */
+
+.status-success { --item-accent: var(--state-success); }
+.status-warning { --item-accent: var(--state-retry); }
+.status-error { --item-accent: var(--state-failed); }
+.status-info { --item-accent: var(--state-running); }
+
+.item[class*="status-"]:not(.status-default)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  width: 3px;
+  background: var(--item-accent);
+  border-radius: 0 2px 2px 0;
+}
+
+/* ─── Icon ─── */
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+/* ─── Content ─── */
+
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subtitle {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Value ─── */
+
+.value {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+/* ─── Trailing ─── */
+
+.trailing {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ─── Header ─── */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.headerTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.headerAction {
+  font-size: 0.75rem;
+  color: var(--accent-500);
+}
+
+/* ─── Empty State ─── */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--text-muted);
+}
+
+.emptyTitle {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.emptyDescription {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  max-width: 280px;
+}
+
+.emptyAction {
+  margin-top: var(--space-2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VARIANT: Compact
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.compact .item {
+  padding: var(--space-2) var(--space-3);
+  gap: var(--space-2);
+}
+
+.compact .title {
+  font-size: 0.8125rem;
+}
+
+.compact .subtitle {
+  font-size: 0.6875rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VARIANT: Cards
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cards {
+  gap: var(--space-3);
+}
+
+.cards .item {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.cards .item + .item {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cards .item.clickable:hover {
+  background: var(--surface-2);
+  border-color: var(--border-default);
+}
+
+.cards .item.selected {
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 1px var(--accent-500);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .cols-2,
+  .cols-3 {
+    grid-template-columns: 1fr;
+  }
+}

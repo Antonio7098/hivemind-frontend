@@ -1,0 +1,164 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXPANDABLE - Collapsible sections with smooth animations
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.expandable {
+  border-radius: var(--radius-md);
+}
+
+/* ─── Header ─── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.header:hover {
+  background: var(--surface-2);
+}
+
+.chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-500);
+  flex-shrink: 0;
+}
+
+.titleGroup {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subtitle {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  flex-shrink: 0;
+}
+
+.trailing {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ─── Content ─── */
+
+.content {
+  overflow: hidden;
+}
+
+.contentInner {
+  padding: 0 var(--space-4) var(--space-4) calc(var(--space-4) + 16px + var(--space-3));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VARIANT: Card
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+}
+
+.card .header {
+  padding: var(--space-4);
+}
+
+.card .header:hover {
+  background: var(--surface-2);
+}
+
+.card .contentInner {
+  padding: var(--space-4);
+  padding-top: 0;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: var(--space-2);
+}
+
+.card.open .header {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VARIANT: Minimal
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.minimal .header {
+  padding: var(--space-2) 0;
+  border-radius: 0;
+}
+
+.minimal .header:hover {
+  background: transparent;
+  color: var(--accent-500);
+}
+
+.minimal .contentInner {
+  padding: var(--space-2) 0 var(--space-2) calc(16px + var(--space-3));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GROUP
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.group.accordion > .expandable:not(:first-child) {
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+}
+
+.group.accordion > .expandable:first-child {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.group.accordion > .expandable:last-child {
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.group.accordion > .expandable:only-child {
+  border-radius: var(--radius-md);
+}

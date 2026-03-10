@@ -1,6 +1,15 @@
 .page {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
+  padding: var(--space-6);
+}
+
+.settingsCard {
+  padding: var(--space-5);
+}
+
+.tabContent {
+  padding-top: var(--space-4);
 }
 
 .select {

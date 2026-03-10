@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   ListTodo,
+  MessageSquare,
   GitBranch,
   Activity,
   Plus,
@@ -45,6 +46,7 @@ export function CommandPalette() {
     { id: 'nav-dashboard', label: 'Go to Dashboard', icon: LayoutDashboard, category: 'Navigation', action: () => navigate('/') },
     { id: 'nav-projects', label: 'Go to Projects', icon: FolderKanban, shortcut: 'G P', category: 'Navigation', action: () => navigate('/projects') },
     { id: 'nav-tasks', label: 'Go to Tasks', icon: ListTodo, shortcut: 'G T', category: 'Navigation', action: () => navigate('/tasks') },
+    { id: 'nav-chat', label: 'Go to Chat', icon: MessageSquare, shortcut: 'G C', category: 'Navigation', action: () => navigate('/chat') },
     { id: 'nav-flows', label: 'Go to Flows', icon: GitBranch, shortcut: 'G F', category: 'Navigation', action: () => navigate('/flows') },
     { id: 'nav-events', label: 'Go to Events', icon: Activity, shortcut: 'G E', category: 'Navigation', action: () => navigate('/events') },
     // Actions

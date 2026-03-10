@@ -3,17 +3,18 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
   FolderKanban,
-  ListTodo,
-  Network,
-  Play,
+  Zap,
+  Clock,
+  CheckSquare,
   Activity,
-  GitMerge,
+  MessageSquare,
   Settings,
   ChevronLeft,
   Hexagon,
   Bell,
   Search,
-  Palette,
+  Layers,
+  GitBranch,
 } from 'lucide-react';
 import { useHivemindStore } from '../stores/hivemindStore';
 import { StatusIndicator } from './StatusIndicator';
@@ -26,13 +27,14 @@ import styles from './Sidebar.module.css';
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/active', icon: Zap, label: 'Active' },
+  { path: '/pending', icon: Clock, label: 'Pending' },
+  { path: '/todo', icon: CheckSquare, label: 'Todo' },
   { path: '/projects', icon: FolderKanban, label: 'Projects' },
-  { path: '/tasks', icon: ListTodo, label: 'Tasks' },
-  { path: '/graphs', icon: Network, label: 'Graphs' },
-  { path: '/flows', icon: Play, label: 'Flows' },
-  { path: '/merges', icon: GitMerge, label: 'Merges' },
+  { path: '/chat', icon: MessageSquare, label: 'Chat' },
+  { path: '/graphs', icon: Layers, label: 'Graphs' },
+  { path: '/flows', icon: GitBranch, label: 'Flows' },
   { path: '/events', icon: Activity, label: 'Events' },
-  { path: '/themes', icon: Palette, label: 'Themes' },
 ];
 
 export function Sidebar() {

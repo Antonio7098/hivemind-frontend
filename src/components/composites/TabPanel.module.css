@@ -1,0 +1,166 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TAB PANEL - Unified tab component with multiple variants
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ─── Tab List ─── */
+
+.tabList {
+  display: flex;
+  gap: var(--space-1);
+  position: relative;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 1px;
+}
+
+/* ─── Tab Button ─── */
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+}
+
+.tab:hover:not(.disabled) {
+  color: var(--text-secondary);
+  background: var(--surface-2);
+}
+
+.tab.active {
+  color: var(--text-primary);
+}
+
+.tab.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tabIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.tabLabel {
+  color: inherit;
+}
+
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-1);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--void);
+  background: var(--accent-500);
+  border-radius: 9px;
+}
+
+.activeIndicator {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-500);
+  border-radius: 1px 1px 0 0;
+}
+
+/* ─── Tab Content ─── */
+
+.tabContent {
+  min-height: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VARIANT: Pills
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.pills .tabList {
+  border-bottom: none;
+  padding: var(--space-1);
+  background: var(--surface-1);
+  border-radius: var(--radius-lg);
+  gap: var(--space-1);
+}
+
+.pills .tab {
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+}
+
+.pills .tab.active {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.pills .activeIndicator {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VARIANT: Underline (minimal)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.underline .tabList {
+  gap: var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.underline .tab {
+  padding: var(--space-3) 0;
+  border-radius: 0;
+}
+
+.underline .tab:hover:not(.disabled) {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.underline .activeIndicator {
+  height: 2px;
+  background: var(--accent-500);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .tabList {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tabList::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.8125rem;
+  }
+}

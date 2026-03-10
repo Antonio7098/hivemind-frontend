@@ -27,32 +27,10 @@
   gap: var(--space-4);
 }
 
-.opsPanel {
-  margin-bottom: var(--space-4);
-}
-
-.opsHeaderRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-}
-
-.opsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-4);
-}
-
-.opsSection {
+.createForm {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-0);
+  gap: var(--space-3);
 }
 
 .opInput,
@@ -71,12 +49,6 @@
 .opTextarea:focus {
   outline: none;
   border-color: var(--accent-500);
-}
-
-.opInput:disabled,
-.opTextarea:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .opTextarea {
@@ -135,6 +107,15 @@
 .menuBtn:hover {
   background: var(--surface-3);
   color: var(--text-primary);
+}
+
+.deleteBtn {
+  color: var(--danger-500);
+}
+
+.deleteBtn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-500);
 }
 
 .projectInfo {
@@ -335,10 +316,6 @@
 
   .newProjectCard {
     min-height: 200px;
-  }
-
-  .opsGrid {
-    grid-template-columns: 1fr;
   }
 }
 
