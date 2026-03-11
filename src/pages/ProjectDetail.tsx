@@ -40,9 +40,12 @@ import { Expandable } from '../components/composites/Expandable';
 import { DataList, DataListItem, DataListEmpty } from '../components/composites/DataList';
 import { useHivemindStore } from '../stores/hivemindStore';
 import type {
+  AttemptInspectView,
   HivemindEvent,
   MergeState,
   ProjectRuntimeConfig,
+  RuntimeApprovalView,
+  RuntimeStreamItemView,
   Task,
   TaskExecState,
   TaskFlow,
@@ -110,6 +113,41 @@ function formatRuntime(runtime: ProjectRuntimeConfig | null | undefined): string
   if (!runtime) return 'Not configured';
   const model = runtime.model ? ` (${runtime.model})` : '';
   return `${runtime.adapter_name}${model}`;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function getStringValue(record: Record<string, unknown> | null, key: string): string | null {
+  const value = record?.[key];
+  return typeof value === 'string' ? value : null;
+}
+
+function runtimeKindBadgeVariant(kind: string): 'default' | 'success' | 'warning' | 'error' | 'info' | 'amber' {
+  if (kind.includes('checkpoint')) return 'success';
+  if (kind === 'approval') return 'warning';
+  if (kind === 'command' || kind.startsWith('tool_call')) return 'amber';
+  if (kind === 'runtime_exited' || kind === 'runtime_terminated' || kind === 'runtime_error') return 'error';
+  if (kind === 'narrative' || kind === 'session' || kind === 'turn') return 'info';
+  return 'default';
+}
+
+function approvalStatusBadgeVariant(status: string): 'default' | 'success' | 'warning' | 'error' | 'info' | 'amber' {
+  switch (status) {
+    case 'approved':
+      return 'success';
+    case 'denied':
+      return 'error';
+    case 'pending':
+      return 'warning';
+    default:
+      return 'default';
+  }
+}
+
+function approvalLabel(approval: RuntimeApprovalView): string {
+  return approval.resource ?? approval.tool_name;
 }
 
 function flowProgress(flow: TaskFlow): string {
@@ -238,6 +276,8 @@ export function ProjectDetail() {
     fetchGlobalSkills,
     fetchGlobalTemplates,
     refreshGraphSnapshot,
+    fetchRuntimeStream,
+    inspectAttempt,
     getGraphForFlow,
     attachProjectRepo,
     detachProjectRepo,
@@ -255,6 +295,10 @@ export function ProjectDetail() {
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<KanbanColumnId | null>(null);
   const [selectedRuntimeContextKey, setSelectedRuntimeContextKey] = useState<string | null>(null);
+  const [runtimeProjectionItems, setRuntimeProjectionItems] = useState<RuntimeStreamItemView[]>([]);
+  const [runtimeProjectionInspect, setRuntimeProjectionInspect] = useState<AttemptInspectView | null>(null);
+  const [runtimeProjectionBusy, setRuntimeProjectionBusy] = useState(false);
+  const [runtimeProjectionError, setRuntimeProjectionError] = useState<string | null>(null);
   const [showAddRepoModal, setShowAddRepoModal] = useState(false);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [showCreateFlowModal, setShowCreateFlowModal] = useState(false);
@@ -348,6 +392,53 @@ export function ProjectDetail() {
     [activeAttemptContexts, selectedRuntimeContextKey],
   );
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!selectedRuntimeContext) {
+      setRuntimeProjectionItems([]);
+      setRuntimeProjectionInspect(null);
+      setRuntimeProjectionError(null);
+      setRuntimeProjectionBusy(false);
+      return;
+    }
+
+    const loadRuntimeProjection = async () => {
+      setRuntimeProjectionBusy(true);
+      setRuntimeProjectionError(null);
+
+      try {
+        const [items, inspect] = await Promise.all([
+          fetchRuntimeStream({
+            attempt_id: selectedRuntimeContext.attemptId ?? undefined,
+            flow_id: selectedRuntimeContext.flowId,
+            limit: 120,
+          }),
+          selectedRuntimeContext.attemptId
+            ? inspectAttempt({ attempt_id: selectedRuntimeContext.attemptId })
+            : Promise.resolve(null),
+        ]);
+
+        if (cancelled) return;
+        setRuntimeProjectionItems(items);
+        setRuntimeProjectionInspect(inspect);
+      } catch (error) {
+        if (cancelled) return;
+        setRuntimeProjectionItems([]);
+        setRuntimeProjectionInspect(null);
+        setRuntimeProjectionError(error instanceof Error ? error.message : String(error));
+      } finally {
+        if (!cancelled) setRuntimeProjectionBusy(false);
+      }
+    };
+
+    void loadRuntimeProjection();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRuntimeContext, fetchRuntimeStream, inspectAttempt]);
+
   const activeAttemptEventStream = useMemo(() => {
     if (!selectedRuntimeContext) return [];
     const stream = projectAllEvents.filter((event) => {
@@ -361,16 +452,6 @@ export function ProjectDetail() {
     });
     return stream.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1)).slice(0, 80);
   }, [projectAllEvents, selectedRuntimeContext]);
-
-  const runtimeProjectionEvents = useMemo(
-    () => activeAttemptEventStream.filter((event) => (
-      event.category === 'runtime'
-      || event.category === 'execution'
-      || event.category === 'filesystem'
-      || event.type === 'FileModified'
-    )),
-    [activeAttemptEventStream],
-  );
 
   const panelCheckpointProjection = useMemo(() => {
     if (!panelSelection || panelSelection.type !== 'task') return null;
@@ -1430,7 +1511,7 @@ export function ProjectDetail() {
           <div className={styles.runtimeProjectionLayout}>
             <div className={styles.runtimeStream}>
               <div className={styles.runtimeHeaderRow}>
-                <Text variant="body-sm">Event stream for active task/attempt</Text>
+                <Text variant="body-sm">Projected runtime timeline for the active task/attempt</Text>
                 <select
                   className={styles.runtimeSelect}
                   value={selectedRuntimeContext?.key ?? ''}
@@ -1448,33 +1529,115 @@ export function ProjectDetail() {
                   <Badge size="sm" variant="info">state: {selectedRuntimeContext.execState}</Badge>
                   <Badge size="sm" variant="default">flow: {selectedRuntimeContext.flowId}</Badge>
                   <Badge size="sm" variant="default">attempt: {selectedRuntimeContext.attemptId ?? 'pending'}</Badge>
+                  {runtimeProjectionInspect?.runtime_session && (
+                    <Badge size="sm" variant="info">
+                      session: {runtimeProjectionInspect.runtime_session.adapter_name}
+                    </Badge>
+                  )}
+                  {runtimeProjectionInspect && (
+                    <Badge size="sm" variant={runtimeProjectionInspect.pending_approvals.length > 0 ? 'warning' : 'success'}>
+                      approvals: {runtimeProjectionInspect.pending_approvals.length} pending
+                    </Badge>
+                  )}
                 </div>
               )}
               <div className={styles.list}>
-                {runtimeProjectionEvents.length === 0 ? (
-                  <Text variant="body-sm" color="tertiary">No runtime projection events for this attempt yet.</Text>
+                {runtimeProjectionBusy ? (
+                  <Text variant="body-sm" color="tertiary">Loading runtime projection…</Text>
+                ) : runtimeProjectionError ? (
+                  <Text variant="body-sm" color="error">{runtimeProjectionError}</Text>
+                ) : runtimeProjectionItems.length === 0 ? (
+                  <Text variant="body-sm" color="tertiary">No projected runtime items for this attempt yet.</Text>
                 ) : (
-                  runtimeProjectionEvents.map((event) => (
-                    <button
-                      key={event.id}
-                      className={`${styles.listRow} ${styles.clickable}`}
-                      onClick={() => setPanelSelection({ type: 'event', value: event })}
-                    >
+                  runtimeProjectionItems.map((item) => {
+                    const data = asRecord(item.data);
+                    const status = getStringValue(data, 'status');
+                    const decision = getStringValue(data, 'decision');
+                    const resource = getStringValue(data, 'resource');
+                    const toolName = getStringValue(data, 'tool_name');
+
+                    return (
+                      <div key={`${item.event_id}-${item.kind}`} className={styles.listRow}>
                       <Stack gap={1}>
                         <Stack direction="row" gap={2} align="center">
-                          <Text variant="body-sm">{event.type}</Text>
-                          <Badge size="sm" variant="default">{event.category}</Badge>
+                          <Text variant="body-sm">{item.title ?? item.kind}</Text>
+                          <Badge size="sm" variant={runtimeKindBadgeVariant(item.kind)}>{item.kind}</Badge>
+                          {status && <Badge size="sm" variant={approvalStatusBadgeVariant(status)}>{status}</Badge>}
+                          {decision && <Badge size="sm" variant="default">{decision}</Badge>}
+                          {item.stream && <Badge size="sm" variant="default">{item.stream}</Badge>}
                         </Stack>
-                        <Text variant="mono-sm" color="muted">{event.id}</Text>
+                        {(item.text || resource || toolName) && (
+                          <Text variant="body-sm" color="secondary">
+                            {item.text ?? [resource, toolName].filter(Boolean).join(' · ')}
+                          </Text>
+                        )}
+                        <Text variant="mono-sm" color="muted">{item.event_id}</Text>
                       </Stack>
-                      <Text variant="caption" color="muted">{formatDateTime(event.timestamp)}</Text>
-                    </button>
-                  ))
+                      <Text variant="caption" color="muted">{formatDateTime(item.timestamp)}</Text>
+                    </div>
+                    );
+                  })
                 )}
               </div>
             </div>
 
             <div className={styles.checkpointStatus}>
+              {runtimeProjectionInspect?.runtime_session && (
+                <>
+                  <Text variant="body-sm">Runtime session</Text>
+                  <div className={styles.list}>
+                    <div className={styles.listRow}>
+                      <Stack gap={1}>
+                        <Text variant="body-sm">{runtimeProjectionInspect.runtime_session.session_id}</Text>
+                        <Text variant="caption" color="muted">
+                          observed {formatDateTime(runtimeProjectionInspect.runtime_session.discovered_at)}
+                        </Text>
+                      </Stack>
+                      <Badge size="sm" variant="info">{runtimeProjectionInspect.runtime_session.adapter_name}</Badge>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {runtimeProjectionInspect && (
+                <>
+                  <Text variant="body-sm">Approval status</Text>
+                  <div className={styles.runtimeMeta}>
+                    <Badge size="sm" variant={runtimeProjectionInspect.pending_approvals.length > 0 ? 'warning' : 'success'}>
+                      {runtimeProjectionInspect.pending_approvals.length} pending
+                    </Badge>
+                    <Badge size="sm" variant="default">{runtimeProjectionInspect.approvals.length} total</Badge>
+                  </div>
+                  {runtimeProjectionInspect.approvals.length === 0 ? (
+                    <Text variant="body-sm" color="tertiary">No projected approvals for this attempt.</Text>
+                  ) : (
+                    <div className={styles.list}>
+                      {runtimeProjectionInspect.approvals.map((approval) => (
+                        <div key={approval.approval_id} className={styles.listRow}>
+                          <Stack gap={1}>
+                            <Stack direction="row" gap={2} align="center">
+                              <Text variant="body-sm">{approvalLabel(approval)}</Text>
+                              <Badge size="sm" variant="info">{approval.approval_kind}</Badge>
+                              <Badge size="sm" variant={approvalStatusBadgeVariant(approval.status)}>{approval.status}</Badge>
+                            </Stack>
+                            {approval.summary && <Text variant="body-sm" color="secondary">{approval.summary}</Text>}
+                            <Text variant="caption" color="muted">
+                              tool {approval.tool_name} · turn {approval.turn_index + 1}
+                            </Text>
+                          </Stack>
+                          <Stack gap={1} align="end">
+                            {approval.decision && <Badge size="sm" variant="default">{approval.decision}</Badge>}
+                            <Text variant="caption" color="muted">
+                              {approval.resolved_at ? formatDateTime(approval.resolved_at) : 'awaiting resolution'}
+                            </Text>
+                          </Stack>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
               <Text variant="body-sm">Checkpoint status</Text>
               <div className={styles.runtimeMeta}>
                 <Badge size="sm" variant={checkpointProjection.completedAll ? 'success' : 'warning'}>

@@ -410,7 +410,25 @@ export interface AttemptInspectView {
   diff_id: string | null;
   runtime_session: AttemptRuntimeSessionView | null;
   turn_refs: AttemptTurnRefView[];
+  approvals: RuntimeApprovalView[];
+  pending_approvals: RuntimeApprovalView[];
   diff: string | null;
+}
+
+export interface RuntimeApprovalView {
+  approval_id: string;
+  call_id: string;
+  invocation_id: string;
+  turn_index: number;
+  tool_name: string;
+  approval_kind: string;
+  status: string;
+  resource: string | null;
+  decision: string | null;
+  summary: string | null;
+  requested_at: string;
+  resolved_at: string | null;
+  policy_tags: string[];
 }
 
 export interface AttemptRuntimeSessionView {

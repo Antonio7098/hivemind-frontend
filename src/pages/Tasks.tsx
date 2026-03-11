@@ -32,6 +32,7 @@ import type {
   TaskFlow,
   TaskExecState,
   AttemptInspectView,
+  RuntimeApprovalView,
   RuntimeStreamItemView,
   VerifyResultsView,
 } from '../types';
@@ -106,10 +107,32 @@ function execStateBadgeVariant(state: TaskExecState): 'default' | 'success' | 'w
 
 function runtimeKindBadgeVariant(kind: string): 'default' | 'success' | 'warning' | 'error' | 'info' | 'amber' {
   if (kind.includes('checkpoint')) return 'success';
-  if (kind === 'command' || kind === 'tool_call') return 'amber';
+  if (kind === 'command' || kind.startsWith('tool_call')) return 'amber';
+  if (kind === 'approval') return 'warning';
   if (kind === 'runtime_exited') return 'warning';
   if (kind === 'narrative' || kind === 'session' || kind === 'turn') return 'info';
   return 'default';
+}
+
+function approvalStatusBadgeVariant(status: string): 'default' | 'success' | 'warning' | 'error' | 'info' | 'amber' {
+  switch (status) {
+    case 'approved':
+      return 'success';
+    case 'denied':
+      return 'error';
+    case 'pending':
+      return 'warning';
+    default:
+      return 'default';
+  }
+}
+
+function runtimeItemData(item: RuntimeStreamItemView): Record<string, unknown> | null {
+  return asRecord(item.data);
+}
+
+function renderApprovalDescriptor(approval: RuntimeApprovalView): string {
+  return approval.resource ?? approval.tool_name;
 }
 
 function computeTaskCheckpoints(events: HivemindEvent[], taskId: string): {
@@ -1278,6 +1301,44 @@ export function Tasks() {
                 )}
               </div>
 
+              <div className={styles.modalSection}>
+                <h4>Approvals</h4>
+                <div className={styles.attemptBadgeRow}>
+                  <Badge size="sm" variant={attemptInspectData.pending_approvals.length > 0 ? 'warning' : 'success'}>
+                    {attemptInspectData.pending_approvals.length} pending
+                  </Badge>
+                  <Badge size="sm" variant="default">{attemptInspectData.approvals.length} total</Badge>
+                </div>
+                {attemptInspectData.approvals.length === 0 ? (
+                  <Text variant="body-sm" color="tertiary">No approval decisions were projected for this attempt.</Text>
+                ) : (
+                  <div className={styles.turnRefList}>
+                    {attemptInspectData.approvals.map((approval) => (
+                      <div key={approval.approval_id} className={styles.turnRefRow}>
+                        <Stack gap={1}>
+                          <Stack direction="row" gap={2} align="center">
+                            <Text variant="body-sm">{renderApprovalDescriptor(approval)}</Text>
+                            <Badge size="sm" variant="info">{approval.approval_kind}</Badge>
+                            <Badge size="sm" variant={approvalStatusBadgeVariant(approval.status)}>{approval.status}</Badge>
+                            {approval.decision && <Badge size="sm" variant="default">{approval.decision}</Badge>}
+                          </Stack>
+                          {approval.summary && <Text variant="body-sm" color="secondary">{approval.summary}</Text>}
+                          <Text variant="caption" color="muted">
+                            tool {approval.tool_name} · turn {approval.turn_index + 1} · requested {formatDateTime(approval.requested_at)}
+                          </Text>
+                        </Stack>
+                        <Stack gap={1} align="end">
+                          <Text variant="mono-sm" color="muted">{approval.call_id}</Text>
+                          <Text variant="caption" color="muted">
+                            {approval.resolved_at ? `resolved ${formatDateTime(approval.resolved_at)}` : 'awaiting resolution'}
+                          </Text>
+                        </Stack>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {attemptInspectData.diff && (
                 <div className={styles.modalSection}>
                   <h4>Diff</h4>
@@ -1291,29 +1352,44 @@ export function Tasks() {
                   <Text variant="body-sm" color="tertiary">No projected runtime items for this attempt yet.</Text>
                 ) : (
                   <div className={styles.runtimeStreamList}>
-                    {attemptRuntimeItems.map((item) => (
-                      <div key={item.event_id} className={styles.runtimeStreamRow}>
-                        <div className={styles.runtimeStreamHeader}>
-                          <Stack gap={1}>
-                            <Stack direction="row" gap={2} align="center">
-                              <Text variant="body-sm">{item.title ?? item.kind}</Text>
-                              <Badge size="sm" variant={runtimeKindBadgeVariant(item.kind)}>
-                                {item.kind}
-                              </Badge>
-                              {item.stream && (
-                                <Badge size="sm" variant="default">{item.stream}</Badge>
+                    {attemptRuntimeItems.map((item) => {
+                      const data = runtimeItemData(item);
+                      const status = getStringValue(data, 'status');
+                      const decision = getStringValue(data, 'decision');
+                      const resource = getStringValue(data, 'resource');
+                      const toolName = getStringValue(data, 'tool_name');
+                      const showRawData = item.kind !== 'approval' && Object.keys(item.data).length > 0;
+
+                      return (
+                        <div key={`${item.event_id}-${item.kind}`} className={styles.runtimeStreamRow}>
+                          <div className={styles.runtimeStreamHeader}>
+                            <Stack gap={1}>
+                              <Stack direction="row" gap={2} align="center">
+                                <Text variant="body-sm">{item.title ?? item.kind}</Text>
+                                <Badge size="sm" variant={runtimeKindBadgeVariant(item.kind)}>
+                                  {item.kind}
+                                </Badge>
+                                {status && (
+                                  <Badge size="sm" variant={approvalStatusBadgeVariant(status)}>{status}</Badge>
+                                )}
+                                {decision && <Badge size="sm" variant="default">{decision}</Badge>}
+                                {item.stream && <Badge size="sm" variant="default">{item.stream}</Badge>}
+                              </Stack>
+                              {(item.text || resource || toolName) && (
+                                <Text variant="body-sm" color="secondary">
+                                  {item.text ?? [resource, toolName].filter(Boolean).join(' · ')}
+                                </Text>
                               )}
+                              <Text variant="mono-sm" color="muted">{item.event_id}</Text>
                             </Stack>
-                            {item.text && <Text variant="body-sm" color="secondary">{item.text}</Text>}
-                            <Text variant="mono-sm" color="muted">{item.event_id}</Text>
-                          </Stack>
-                          <Text variant="caption" color="muted">{formatDateTime(item.timestamp)}</Text>
+                            <Text variant="caption" color="muted">{formatDateTime(item.timestamp)}</Text>
+                          </div>
+                          {showRawData && (
+                            <pre className={styles.runtimeData}>{JSON.stringify(item.data, null, 2)}</pre>
+                          )}
                         </div>
-                        {Object.keys(item.data).length > 0 && (
-                          <pre className={styles.runtimeData}>{JSON.stringify(item.data, null, 2)}</pre>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
