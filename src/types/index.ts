@@ -462,6 +462,8 @@ export interface RuntimeStreamItemView {
   data: Record<string, unknown>;
 }
 
+export type RuntimeStreamDetailLevel = 'summary' | 'observability' | 'telemetry';
+
 export type ChatMode = 'freeflow' | 'plan';
 export type ChatHistoryRole = 'user' | 'assistant';
 

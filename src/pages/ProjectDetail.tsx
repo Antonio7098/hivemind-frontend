@@ -45,6 +45,7 @@ import type {
   MergeState,
   ProjectRuntimeConfig,
   RuntimeApprovalView,
+  RuntimeStreamDetailLevel,
   RuntimeStreamItemView,
   Task,
   TaskExecState,
@@ -59,6 +60,12 @@ import type {
 import styles from './ProjectDetail.module.css';
 
 type ProjectTab = 'overview' | 'governance' | 'kanban';
+
+const RUNTIME_STREAM_DETAIL_OPTIONS: RuntimeStreamDetailLevel[] = [
+  'summary',
+  'observability',
+  'telemetry',
+];
 
 type PanelSelection =
   | { type: 'task'; value: Task }
@@ -295,6 +302,8 @@ export function ProjectDetail() {
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<KanbanColumnId | null>(null);
   const [selectedRuntimeContextKey, setSelectedRuntimeContextKey] = useState<string | null>(null);
+  const [runtimeProjectionDetail, setRuntimeProjectionDetail] =
+    useState<RuntimeStreamDetailLevel>('telemetry');
   const [runtimeProjectionItems, setRuntimeProjectionItems] = useState<RuntimeStreamItemView[]>([]);
   const [runtimeProjectionInspect, setRuntimeProjectionInspect] = useState<AttemptInspectView | null>(null);
   const [runtimeProjectionBusy, setRuntimeProjectionBusy] = useState(false);
@@ -413,6 +422,7 @@ export function ProjectDetail() {
             attempt_id: selectedRuntimeContext.attemptId ?? undefined,
             flow_id: selectedRuntimeContext.flowId,
             limit: 120,
+            detail: runtimeProjectionDetail,
           }),
           selectedRuntimeContext.attemptId
             ? inspectAttempt({ attempt_id: selectedRuntimeContext.attemptId })
@@ -437,7 +447,7 @@ export function ProjectDetail() {
     return () => {
       cancelled = true;
     };
-  }, [selectedRuntimeContext, fetchRuntimeStream, inspectAttempt]);
+  }, [selectedRuntimeContext, runtimeProjectionDetail, fetchRuntimeStream, inspectAttempt]);
 
   const activeAttemptEventStream = useMemo(() => {
     if (!selectedRuntimeContext) return [];
@@ -1512,17 +1522,38 @@ export function ProjectDetail() {
             <div className={styles.runtimeStream}>
               <div className={styles.runtimeHeaderRow}>
                 <Text variant="body-sm">Projected runtime timeline for the active task/attempt</Text>
-                <select
-                  className={styles.runtimeSelect}
-                  value={selectedRuntimeContext?.key ?? ''}
-                  onChange={(event) => setSelectedRuntimeContextKey(event.target.value)}
-                >
-                  {activeAttemptContexts.map((context) => (
-                    <option key={context.key} value={context.key}>
-                      {context.taskTitle} · {context.flowId} · {context.attemptId ?? 'attempt-pending'}
-                    </option>
-                  ))}
-                </select>
+                <div className={styles.runtimeControls}>
+                  <div className={styles.runtimeControlGroup}>
+                    <Text variant="caption" color="muted">Detail</Text>
+                    <select
+                      className={styles.runtimeSelect}
+                      value={runtimeProjectionDetail}
+                      onChange={(event) =>
+                        setRuntimeProjectionDetail(event.target.value as RuntimeStreamDetailLevel)
+                      }
+                    >
+                      {RUNTIME_STREAM_DETAIL_OPTIONS.map((detail) => (
+                        <option key={detail} value={detail}>
+                          {detail}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={styles.runtimeControlGroup}>
+                    <Text variant="caption" color="muted">Attempt</Text>
+                    <select
+                      className={styles.runtimeSelect}
+                      value={selectedRuntimeContext?.key ?? ''}
+                      onChange={(event) => setSelectedRuntimeContextKey(event.target.value)}
+                    >
+                      {activeAttemptContexts.map((context) => (
+                        <option key={context.key} value={context.key}>
+                          {context.taskTitle} · {context.flowId} · {context.attemptId ?? 'attempt-pending'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
               {selectedRuntimeContext && (
                 <div className={styles.runtimeMeta}>

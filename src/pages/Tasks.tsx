@@ -33,12 +33,19 @@ import type {
   TaskExecState,
   AttemptInspectView,
   RuntimeApprovalView,
+  RuntimeStreamDetailLevel,
   RuntimeStreamItemView,
   VerifyResultsView,
 } from '../types';
 import styles from './Tasks.module.css';
 
 type FilterState = TaskState | 'all';
+
+const RUNTIME_STREAM_DETAIL_OPTIONS: RuntimeStreamDetailLevel[] = [
+  'summary',
+  'observability',
+  'telemetry',
+];
 
 interface CheckpointInfo {
   checkpointId: string;
@@ -382,6 +389,8 @@ export function Tasks() {
   const [attemptInspectData, setAttemptInspectData] = useState<AttemptInspectView | null>(null);
   const [attemptVerifyData, setAttemptVerifyData] = useState<VerifyResultsView | null>(null);
   const [attemptRuntimeItems, setAttemptRuntimeItems] = useState<RuntimeStreamItemView[]>([]);
+  const [attemptRuntimeDetail, setAttemptRuntimeDetail] =
+    useState<RuntimeStreamDetailLevel>('telemetry');
   const [attemptBusy, setAttemptBusy] = useState(false);
   const [attemptError, setAttemptError] = useState<string | null>(null);
 
@@ -465,7 +474,11 @@ export function Tasks() {
         const [inspectResult, verifyResult, runtimeItems] = await Promise.all([
           inspectAttempt({ attempt_id: selectedAttemptId, diff: true }),
           fetchVerifyResults({ attempt_id: selectedAttemptId, output: false }),
-          fetchRuntimeStream({ attempt_id: selectedAttemptId, limit: 200 }),
+          fetchRuntimeStream({
+            attempt_id: selectedAttemptId,
+            limit: 200,
+            detail: attemptRuntimeDetail,
+          }),
         ]);
 
         if (cancelled) return;
@@ -488,7 +501,14 @@ export function Tasks() {
     return () => {
       cancelled = true;
     };
-  }, [selectedAttemptId, attemptRefreshKey, inspectAttempt, fetchVerifyResults, fetchRuntimeStream]);
+  }, [
+    selectedAttemptId,
+    attemptRefreshKey,
+    attemptRuntimeDetail,
+    inspectAttempt,
+    fetchVerifyResults,
+    fetchRuntimeStream,
+  ]);
 
   const parseArgs = (raw: string): string[] =>
     raw
@@ -1347,7 +1367,25 @@ export function Tasks() {
               )}
 
               <div className={styles.modalSection}>
-                <h4>Runtime projection</h4>
+                <div className={styles.runtimeSectionHeader}>
+                  <h4>Runtime projection</h4>
+                  <div className={styles.runtimeControls}>
+                    <Text variant="caption" color="muted">Detail</Text>
+                    <select
+                      className={styles.runtimeSelect}
+                      value={attemptRuntimeDetail}
+                      onChange={(event) =>
+                        setAttemptRuntimeDetail(event.target.value as RuntimeStreamDetailLevel)
+                      }
+                    >
+                      {RUNTIME_STREAM_DETAIL_OPTIONS.map((detail) => (
+                        <option key={detail} value={detail}>
+                          {detail}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 {attemptRuntimeItems.length === 0 ? (
                   <Text variant="body-sm" color="tertiary">No projected runtime items for this attempt yet.</Text>
                 ) : (

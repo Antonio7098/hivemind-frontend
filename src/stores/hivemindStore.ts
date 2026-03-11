@@ -12,6 +12,7 @@ import type {
   WorktreeStatus,
   VerifyResultsView,
   AttemptInspectView,
+  RuntimeStreamDetailLevel,
   RuntimeStreamItemView,
   ChatMode,
   ChatHistoryMessageInput,
@@ -771,6 +772,7 @@ interface HivemindStore {
     attempt_id?: string;
     flow_id?: string;
     limit?: number;
+    detail?: RuntimeStreamDetailLevel;
   }) => Promise<RuntimeStreamItemView[]>;
   fetchAttemptDiff: (payload: {
     attempt_id: string;
@@ -1153,6 +1155,7 @@ export const useHivemindStore = create<HivemindStore>((set, get) => ({
         attempt_id: payload.attempt_id,
         flow_id: payload.flow_id,
         limit: payload.limit,
+        detail: payload.detail,
       })}`,
     ),
   fetchAttemptDiff: async (payload) =>

@@ -221,6 +221,21 @@
   gap: var(--space-2);
 }
 
+.runtimeControls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.runtimeControlGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .runtimeSelect {
   min-width: 260px;
   border: 1px solid var(--border-subtle);
@@ -262,6 +277,15 @@
 
   .runtimeGrid {
     grid-template-columns: 1fr;
+  }
+
+  .runtimeHeaderRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .runtimeControls {
+    justify-content: flex-start;
   }
 }
 

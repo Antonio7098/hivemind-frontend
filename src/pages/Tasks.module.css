@@ -333,6 +333,35 @@
   margin-bottom: var(--space-3);
 }
 
+.runtimeSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.runtimeSectionHeader h4 {
+  margin-bottom: 0;
+}
+
+.runtimeControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.runtimeSelect {
+  min-width: 180px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 0.75rem;
+}
+
 .runtimeData,
 .diffBlock {
   margin-top: var(--space-3);
@@ -386,6 +415,11 @@
   .turnRefRow,
   .attemptModalActions,
   .runtimeStreamHeader {
+    flex-direction: column;
+  }
+
+  .runtimeSectionHeader {
+    align-items: flex-start;
     flex-direction: column;
   }
 }
